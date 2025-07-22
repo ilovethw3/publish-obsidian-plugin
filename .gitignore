@@ -1,0 +1,68 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs
+main.js
+main.js.map
+dist/
+*/dist/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# SSL certificates (don't commit real certificates)
+ssl-data/
+*.pem
+*.key
+*.crt
+
+# Docker volumes
+/server/database/
+/server/logs/
+
+# Backups
+backups/
+*.tar.gz
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+*.lcov
+
+# Runtime
+pid
+*.pid
+*.seed
+*.pid.lock
+
+# Obsidian plugin data
+data.json
+
+# Temporary
+tmp/
+temp/

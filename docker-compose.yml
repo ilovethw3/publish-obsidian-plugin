@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: obsidian-publisher-app
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/data/posts.db
+      - CORS_ORIGIN=https://share.141029.xyz
+    volumes:
+      - app_data:/app/data
+      - app_logs:/app/logs
+    networks:
+      - app_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').request({hostname:'localhost',port:3000,path:'/health',timeout:1000}).on('response',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1)).end()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+    container_name: obsidian-publisher-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./server/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ssl_certs:/etc/letsencrypt:ro
+      - ssl_www:/var/www/certbot:ro
+    depends_on:
+      - app
+    networks:
+      - app_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  certbot:
+    image: certbot/certbot
+    container_name: obsidian-publisher-certbot
+    volumes:
+      - ssl_certs:/etc/letsencrypt
+      - ssl_www:/var/www/certbot
+    command: certonly --webroot --webroot-path=/var/www/certbot --email ${SSL_EMAIL:-admin@share.141029.xyz} --agree-tos --no-eff-email --force-renewal -d ${DOMAIN:-share.141029.xyz}
+    depends_on:
+      - nginx
+    profiles:
+      - ssl-init
+
+  # SSL certificate renewal service
+  certbot-renew:
+    image: certbot/certbot
+    container_name: obsidian-publisher-certbot-renew
+    volumes:
+      - ssl_certs:/etc/letsencrypt
+      - ssl_www:/var/www/certbot
+    command: renew --webroot --webroot-path=/var/www/certbot
+    profiles:
+      - ssl-renew
+
+volumes:
+  app_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./server/database
+  app_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./server/logs
+  ssl_certs:
+    driver: local
+  ssl_www:
+    driver: local
+
+networks:
+  app_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

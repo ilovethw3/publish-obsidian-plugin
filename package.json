@@ -1,0 +1,27 @@
+{
+  "name": "obsidian-publisher-monorepo",
+  "version": "1.0.0",
+  "description": "Obsidian note publishing system with Express.js backend",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "client:dev": "cd client && npm run dev",
+    "client:build": "cd client && npm run build",
+    "server:dev": "cd server && npm run dev",
+    "server:build": "cd server && npm run build",
+    "server:start": "cd server && npm start",
+    "build": "npm run client:build && npm run server:build",
+    "dev": "concurrently \"npm run client:dev\" \"npm run server:dev\"",
+    "install-all": "npm install && cd client && npm install && cd ../server && npm install",
+    "test": "cd server && npm test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "keywords": ["obsidian", "publisher", "markdown", "express", "monorepo"],
+  "author": "System",
+  "license": "MIT"
+}
