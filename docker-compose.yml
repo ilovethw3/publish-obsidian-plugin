@@ -3,8 +3,8 @@ version: '3.8'
 services:
   app:
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./server/Dockerfile
     container_name: obsidian-publisher-app
     environment:
       - NODE_ENV=production

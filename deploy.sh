@@ -33,7 +33,11 @@ log_error() {
 check_dependencies() {
     log_info "Checking dependencies..."
     
-    local deps=("docker" "docker-compose" "git")
+    local deps=("docker" "git")
+    # 检查 docker compose 是否可用
+    if ! docker compose version &> /dev/null; then
+        deps+=("docker-compose")
+    fi
     local missing_deps=()
     
     for dep in "${deps[@]}"; do
@@ -49,6 +53,15 @@ check_dependencies() {
     fi
     
     log_success "All dependencies are installed"
+}
+
+# Function to run docker compose with fallback to docker-compose
+docker_compose() {
+    if docker compose version &> /dev/null; then
+        docker compose "$@"
+    else
+        docker-compose "$@"
+    fi
 }
 
 # Function to create backup
@@ -91,7 +104,7 @@ setup_ssl() {
     log_info "Requesting SSL certificate from Let's Encrypt..."
     
     export DOMAIN SSL_EMAIL
-    docker-compose --profile ssl-init up --abort-on-container-exit certbot
+    docker_compose --profile ssl-init up --abort-on-container-exit certbot
     
     if [ $? -eq 0 ]; then
         log_success "SSL certificate obtained successfully"
@@ -121,12 +134,12 @@ deploy_app() {
     
     # Stop existing containers
     log_info "Stopping existing containers..."
-    docker-compose down --remove-orphans || true
+    docker_compose down --remove-orphans || true
     
     # Build and start new containers
     log_info "Building and starting containers..."
-    docker-compose build --no-cache app
-    docker-compose up -d
+    docker_compose build --no-cache app
+    docker_compose up -d
     
     # Wait for services to be healthy
     log_info "Waiting for services to be healthy..."
@@ -134,14 +147,14 @@ deploy_app() {
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do
-        if docker-compose ps | grep -q "healthy"; then
+        if docker_compose ps | grep -q "healthy"; then
             break
         fi
         
         if [ $attempt -eq $max_attempts ]; then
             log_error "Services failed to become healthy after $max_attempts attempts"
             log_info "Checking logs..."
-            docker-compose logs --tail=50
+            docker_compose logs --tail=50
             return 1
         fi
         
@@ -181,7 +194,7 @@ health_check() {
         if [ $attempt -eq $max_attempts ]; then
             log_error "Health check failed after $max_attempts attempts"
             log_info "Checking application logs..."
-            docker-compose logs app --tail=20
+            docker_compose logs app --tail=20
             return 1
         fi
         
@@ -197,7 +210,7 @@ show_status() {
     echo ""
     
     log_info "Container Status:"
-    docker-compose ps
+    docker_compose ps
     echo ""
     
     log_info "Application URLs:"
@@ -207,10 +220,10 @@ show_status() {
     echo ""
     
     log_info "Useful Commands:"
-    echo "  • View logs: docker-compose logs -f"
-    echo "  • Restart services: docker-compose restart"
-    echo "  • Stop services: docker-compose down"
-    echo "  • Renew SSL: docker-compose --profile ssl-renew up certbot-renew"
+    echo "  • View logs: docker_compose logs -f"
+    echo "  • Restart services: docker_compose restart"
+    echo "  • Stop services: docker_compose down"
+    echo "  • Renew SSL: docker_compose --profile ssl-renew up certbot-renew"
 }
 
 # Function to setup SSL certificate renewal
@@ -225,11 +238,11 @@ export DOMAIN=${DOMAIN:-"share.141029.xyz"}
 export SSL_EMAIL=${SSL_EMAIL:-"admin@share.141029.xyz"}
 
 echo "[$(date)] Starting SSL renewal..."
-docker-compose --profile ssl-renew up certbot-renew
+docker_compose --profile ssl-renew up certbot-renew
 
 if [ $? -eq 0 ]; then
     echo "[$(date)] SSL renewal successful, reloading nginx..."
-    docker-compose exec nginx nginx -s reload
+    docker_compose exec nginx nginx -s reload
     echo "[$(date)] SSL renewal completed"
 else
     echo "[$(date)] SSL renewal failed"
@@ -262,7 +275,7 @@ main() {
     if ! health_check; then
         log_error "Deployment failed health checks"
         log_info "Rolling back..."
-        docker-compose down
+        docker_compose down
         exit 1
     fi
     
@@ -286,8 +299,8 @@ case "${1:-deploy}" in
         setup_ssl
         ;;
     "ssl-renew")
-        docker-compose --profile ssl-renew up certbot-renew
-        docker-compose exec nginx nginx -s reload
+        docker_compose --profile ssl-renew up certbot-renew
+        docker_compose exec nginx nginx -s reload
         ;;
     "backup")
         create_backup
@@ -296,13 +309,13 @@ case "${1:-deploy}" in
         show_status
         ;;
     "logs")
-        docker-compose logs -f "${2:-}"
+        docker_compose logs -f "${2:-}"
         ;;
     "restart")
-        docker-compose restart "${2:-}"
+        docker_compose restart "${2:-}"
         ;;
     "stop")
-        docker-compose down
+        docker_compose down
         ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [command]"

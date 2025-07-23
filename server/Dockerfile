@@ -9,15 +9,15 @@ RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
 # Copy package files
-COPY package*.json ./
-COPY tsconfig.json ./
+COPY server/package*.json ./
+COPY server/tsconfig.json ./
 
 # Install dependencies
 RUN npm ci --only=production && npm cache clean --force
 
 # Copy source code
-COPY src ./src
-COPY ../shared ./shared
+COPY server/src ./src
+COPY shared ./shared
 
 # Create necessary directories and set permissions
 RUN mkdir -p /app/data /app/logs && \
