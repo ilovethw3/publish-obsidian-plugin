@@ -2,9 +2,9 @@
   "name": "obsidian-publisher-server",
   "version": "1.0.0",
   "description": "Express.js server for Obsidian note publishing system",
-  "main": "dist/app.js",
+  "main": "dist/src/app.js",
   "scripts": {
-    "start": "node dist/app.js",
+    "start": "node dist/src/app.js",
     "dev": "nodemon src/app.ts",
     "build": "tsc",
     "test": "jest",
