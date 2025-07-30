@@ -19,8 +19,16 @@ RUN npm install && npm cache clean --force
 COPY server/src ./src
 COPY shared ./shared
 
+# Debug: Check file structure
+RUN echo "=== File structure before build ===" && \
+    ls -la && \
+    echo "=== Shared directory ===" && \
+    ls -la shared/ && \
+    echo "=== TypeScript config ===" && \
+    cat tsconfig.json
+
 # Build the application
-RUN npm run build
+RUN npm run build && ls -la dist/ && echo "Build completed successfully"
 
 # Remove dev dependencies to reduce image size
 RUN npm prune --omit=dev
