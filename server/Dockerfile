@@ -12,19 +12,22 @@ RUN addgroup -g 1001 -S nodejs && \
 COPY server/package*.json ./
 COPY server/tsconfig.json ./
 
-# Install dependencies
-RUN npm install --omit=dev && npm cache clean --force
+# Install all dependencies (including dev dependencies for build)
+RUN npm install && npm cache clean --force
 
 # Copy source code
 COPY server/src ./src
 COPY shared ./shared
 
+# Build the application
+RUN npm run build
+
+# Remove dev dependencies to reduce image size
+RUN npm prune --omit=dev
+
 # Create necessary directories and set permissions
 RUN mkdir -p /app/data /app/logs && \
     chown -R nodejs:nodejs /app
-
-# Build the application
-RUN npm run build
 
 # Switch to non-root user
 USER nodejs
