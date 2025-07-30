@@ -19,12 +19,21 @@ export default async function (
 	});
 
 	if (!resp.ok) {
+		const errorText = await resp.text();
+		console.error('HTTP Request failed:', {
+			status: resp.status,
+			statusText: resp.statusText,
+			url: url,
+			method: method,
+			body: errorText
+		});
 		throw new Error(
-			`Request failed: ${resp.status} - ${await resp.text()}`
+			`Request failed: ${resp.status} ${resp.statusText} - ${errorText}`
 		);
 	}
 
-	return resp.headers.get("Content-Type") == "application/json"
+	const contentType = resp.headers.get("Content-Type");
+	return contentType && contentType.includes("application/json")
 		? await resp.json()
 		: null;
 }
