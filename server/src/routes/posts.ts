@@ -75,7 +75,7 @@ const handleValidationErrors = (req: express.Request, res: express.Response, nex
 router.post('/', 
   createPostValidation,
   handleValidationErrors,
-  async (req: express.Request<{}, CreatePostResponse, CreatePostRequest>, res, next) => {
+  async (req: express.Request<{}, CreatePostResponse, CreatePostRequest>, res: express.Response<CreatePostResponse>, next: express.NextFunction) => {
     try {
       const { title, content } = req.body;
 
@@ -97,10 +97,7 @@ router.post('/',
         contentLength: content.length 
       });
 
-      res.status(201).json({
-        success: true,
-        data: { id, secret }
-      });
+      res.status(201).json({ id, secret });
 
     } catch (error) {
       next(error);
@@ -114,7 +111,7 @@ router.post('/',
 router.get('/:id',
   getPostValidation,
   handleValidationErrors,
-  async (req: express.Request<{ id: string }>, res, next) => {
+  async (req: express.Request<{ id: string }>, res: express.Response, next: express.NextFunction) => {
     try {
       const { id } = req.params;
 
@@ -163,7 +160,7 @@ router.get('/:id',
 router.put('/:id',
   updatePostValidation,
   handleValidationErrors,
-  async (req: express.Request<{ id: string }, {}, UpdatePostRequest>, res, next) => {
+  async (req: express.Request<{ id: string }, {}, UpdatePostRequest>, res: express.Response, next: express.NextFunction) => {
     try {
       const { id } = req.params;
       const { secret, title, content } = req.body;
@@ -205,7 +202,7 @@ router.put('/:id',
 router.delete('/:id',
   deletePostValidation,
   handleValidationErrors,
-  async (req: express.Request<{ id: string }, {}, DeletePostRequest>, res, next) => {
+  async (req: express.Request<{ id: string }, {}, DeletePostRequest>, res: express.Response, next: express.NextFunction) => {
     try {
       const { id } = req.params;
       const { secret } = req.body;

@@ -51,7 +51,7 @@ export const loggerMiddleware = (req: Request, res: Response, next: NextFunction
       duration: `${duration}ms`
     });
 
-    originalEnd.call(this, chunk, encoding);
+    return originalEnd.call(this, chunk, encoding);
   };
 
   next();
