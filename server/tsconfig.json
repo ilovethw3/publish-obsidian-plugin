@@ -18,7 +18,8 @@
   },
   "include": [
     "src/**/*",
-    "../shared/**/*"
+    "../shared/**/*",
+    "./shared/**/*"
   ],
   "exclude": [
     "node_modules",
