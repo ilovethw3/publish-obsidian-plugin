@@ -25,9 +25,14 @@ app.use(helmet({
   }
 }));
 
-// CORS configuration
+// CORS configuration - Allow Obsidian app requests
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'https://share.141029.xyz',
+  origin: [
+    'app://obsidian.md',
+    'https://share.141029.xyz',
+    /^obsidian:\/\//,
+    /^app:\/\//
+  ],
   credentials: true
 }));
 
