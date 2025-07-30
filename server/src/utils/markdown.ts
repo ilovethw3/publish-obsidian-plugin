@@ -1,7 +1,7 @@
 import MarkdownIt from 'markdown-it';
 import fs from 'fs/promises';
 import path from 'path';
-import { Post } from '../../../shared/types';
+import { Post } from 'shared/types';
 import { logger } from '../middleware/logger';
 
 export class MarkdownRenderer {

@@ -1,5 +1,5 @@
 import { Database } from './database';
-import { Post } from '../../../shared/types';
+import { Post } from 'shared/types';
 import { logger } from '../middleware/logger';
 
 export interface CreatePostData {

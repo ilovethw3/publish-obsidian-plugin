@@ -10,7 +10,7 @@ import {
   CreatePostResponse, 
   UpdatePostRequest, 
   DeletePostRequest 
-} from '../../../shared/types';
+} from 'shared/types';
 
 const router = express.Router();
 const postModel = new PostModel();
