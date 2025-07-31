@@ -1,279 +1,359 @@
-# Obsidian 发布系统 v0.1 实施计划
+# Obsidian Publishing System: Implementation Tasks
 
-## 任务清单
+This document outlines the development tasks required to build the Obsidian Publishing System. It is designed to be used by the development team as a roadmap for implementation, testing, and deployment.
 
-### 1. 项目结构重组和初始化
-- [ ] 1.1 创建 Monorepo 工作区结构
-  - 创建 `client/`、`server/`、`shared/` 目录
-  - 配置根目录 package.json 的 workspaces 配置
-  - 确保现有插件构建流程兼容性
-  - **需求引用**: 6.1, 6.2, 6.3, 6.4, 6.5
+## Task Legend
+-   **Dependencies:** Tasks that must be completed before this one can begin.
+-   **Complexity:** A rough estimate of effort (Low, Medium, High).
 
-- [ ] 1.2 迁移客户端代码到 client 目录
-  - 将现有的 TypeScript 源码移动到 `client/` 目录
-  - 调整 esbuild.config.mjs 中的入口路径
-  - 创建符号链接确保构建输出在根目录
-  - 测试插件构建和加载正常性
-  - **需求引用**: 6.1, 6.4, 6.5
+---
 
-### 2. 共享类型定义创建
-- [ ] 2.1 定义 API 接口类型
-  - 创建 `shared/types.ts` 文件
-  - 定义 CreatePostRequest, CreatePostResponse 接口
-  - 定义 UpdatePostRequest, DeletePostRequest 接口
-  - 定义 Post 数据模型接口
-  - **需求引用**: 2.2, 2.3, 3.2, 4.2
+### 1. Project Setup & Infrastructure
 
-### 3. 服务端基础架构搭建
-- [ ] 3.1 初始化 Express.js 项目
-  - 创建 `server/package.json` 配置文件
-  - 安装核心依赖：express, sqlite3, cors, helmet
-  - 安装开发依赖：typescript, @types/node, nodemon
-  - 配置 TypeScript 编译选项
-  - **需求引用**: 7.1, 7.5
+These tasks focus on creating a robust and scalable foundation for the project.
 
-- [ ] 3.2 创建 Express 应用主文件
-  - 实现 `server/src/app.ts` 主应用文件
-  - 配置基础中间件栈：helmet, cors, express.json
-  - 设置错误处理中间件
-  - 配置服务器监听端口
-  - **需求引用**: 7.1, 7.5, 7.6
+<br>
 
-### 4. 数据库层实现
-- [ ] 4.1 创建 SQLite 数据库模式
-  - 实现 `server/src/models/database.ts` 数据库连接
-  - 编写 posts 表创建 SQL 脚本
-  - 实现数据库初始化和迁移逻辑
-  - 创建必要的索引优化查询性能
-  - **需求引用**: 7.2, 2.5
+#### 1.1. Initialize Monorepo
+-   **Description:** Set up a monorepo using npm workspaces to manage the `server`, `client` (Obsidian plugin), and `shared` packages.
+-   **Acceptance Criteria:**
+    -   A workspace configuration is setup at the root level
+    -   The directory structure `client/`, `server/`, and `shared/` is created
+    -   Dependencies can be managed at workspace level
+-   **Dependencies:** None
+-   **Complexity:** Medium
+-   **Technical Considerations:** This setup is crucial for managing shared code and dependencies efficiently.
 
-- [ ] 4.2 实现 Post 数据模型
-  - 创建 `server/src/models/post.ts` 模型类
-  - 实现 create 方法用于创建新文章
-  - 实现 findById 方法用于查询文章
-  - 实现 update 和 delete 方法
-  - 添加数据库事务处理
-  - **需求引用**: 2.5, 3.4, 4.3, 4.5
+#### 1.2. Configure TypeScript and Linting
+-   **Description:** Establish a root-level configuration for TypeScript, ESLint, and Prettier, with the ability for individual packages to extend or override settings.
+-   **Acceptance Criteria:**
+    -   A base `tsconfig.json` exists at the root. Each package has its own `tsconfig.json` that extends the base.
+    -   Root `.eslintrc` and `.prettierrc` files are configured.
+    -   `lint` and `format` scripts are added to the root `package.json`.
+-   **Dependencies:** 1.1
+-   **Complexity:** Medium
+-   **Technical Considerations:** A consistent code style and quality gate are essential for maintainability.
 
-### 5. ID 生成和验证系统
-- [ ] 5.1 实现短 ID 生成器
-  - 创建 `server/src/utils/idGenerator.ts` 工具类
-  - 实现8位短ID生成算法（避免混淆字符）
-  - 添加唯一性检查和冲突重试机制
-  - 编写单元测试验证ID格式和唯一性
-  - **需求引用**: 2.4, 9.4
+---
 
-- [ ] 5.2 实现 Secret 验证系统
-  - 添加 UUID v4 生成功能用于 secret
-  - 实现 secret 验证中间件
-  - 添加验证失败时的错误处理
-  - 确保验证过程的时间安全性
-  - **需求引用**: 3.2, 4.2, 9.1
+### 2. Shared Types & Interfaces
 
-### 6. API 路由和控制器实现
-- [ ] 6.1 实现文章创建 API (POST /)
-  - 创建 `server/src/routes/posts.ts` 路由文件
-  - 实现 POST / 端点处理逻辑
-  - 添加请求体验证（标题和内容）
-  - 生成唯一ID和secret，存储到数据库
-  - 返回符合接口规范的响应
-  - **需求引用**: 2.1, 2.2, 2.3, 2.6
+Creating a dedicated package for shared types ensures consistency between the client and server.
 
-- [ ] 6.2 实现文章更新 API (PUT /:id)
-  - 实现 PUT /:id 端点处理逻辑
-  - 添加 secret 验证中间件调用
-  - 验证请求体包含必要字段
-  - 更新数据库记录和时间戳
-  - 处理文章不存在的错误情况
-  - **需求引用**: 3.1, 3.2, 3.3, 3.4, 3.5
+<br>
 
-- [ ] 6.3 实现文章删除 API (DELETE /:id)
-  - 实现 DELETE /:id 端点处理逻辑
-  - 添加 secret 验证和权限检查
-  - 从数据库中删除文章记录
-  - 处理删除失败的各种错误情况
-  - 返回适当的HTTP状态码
-  - **需求引用**: 4.1, 4.2, 4.3, 4.4, 4.5
+#### 2.1. Define Core TypeScript Interfaces
+-   **Description:** In the `shared/` directory, define and export all TypeScript interfaces that will be used by both the server and the client.
+-   **Acceptance Criteria:**
+    -   `Post`, `CreatePostRequest`, `CreatePostResponse`, `UpdatePostRequest` interfaces are defined
+    -   `ApiErrorResponse` interface is defined for consistent error handling
+    -   All types are exported from the package's entry point
+-   **Dependencies:** 1.1
+-   **Complexity:** Low
+-   **Technical Considerations:** Keep these interfaces pure data contracts. Avoid including any logic or functions.
 
-### 7. HTML 渲染系统
-- [ ] 7.1 实现 Markdown 渲染器
-  - 创建 `server/src/utils/markdown.ts` 工具类
-  - 配置 markdown-it 库用于 Markdown 到 HTML 转换
-  - 添加语法高亮和链接处理功能
-  - 实现安全的HTML输出清理
-  - **需求引用**: 5.2, 5.4, 5.5
+#### 2.2. Configure Type Compilation and Distribution
+-   **Description:** Set up a build process for the `shared` package that compiles TypeScript to JavaScript and generates declaration files (`.d.ts`).
+-   **Acceptance Criteria:**
+    -   A `build` script in `shared/package.json` runs `tsc`
+    -   The `server` and `client` packages can import types from `shared`
+    -   Path mapping is configured correctly in both client and server tsconfig files
+-   **Dependencies:** 2.1
+-   **Complexity:** Low
+-   **Technical Considerations:** Ensure proper path mapping for both local development and Docker environments.
 
-- [ ] 7.2 创建文章 HTML 模板
-  - 创建 `server/src/templates/article.html` 模板文件
-  - 设计响应式CSS样式
-  - 实现模板变量替换逻辑
-  - 添加SEO友好的meta标签
-  - **需求引用**: 5.4, 5.5
+---
 
-- [ ] 7.3 实现文章访问 API (GET /:id)
-  - 实现 GET /:id 端点处理逻辑
-  - 从数据库查询文章数据
-  - 渲染 Markdown 内容为 HTML
-  - 使用模板生成完整HTML页面
-  - 处理文章不存在的404错误
-  - **需求引用**: 5.1, 5.2, 5.3, 5.4, 5.5
+### 3. Database & Backend Tasks
 
-### 8. 客户端 Base URL 修改
-- [ ] 8.1 更新客户端 API 端点
-  - 修改 `client/src/obsius.ts` 第4行 baseUrl 常量
-  - 将URL从 `https://obsius.site` 改为 `https://share.141029.xyz`
-  - 验证所有API调用使用新的base URL
-  - 确保URL构建逻辑保持兼容
-  - **需求引用**: 1.1, 1.2, 1.3
+This section covers the entire server-side implementation.
 
-### 9. 安全和验证中间件
-- [ ] 9.1 实现安全中间件
-  - 创建 `server/src/middleware/security.ts` 文件
-  - 配置 helmet 安全头部
-  - 实现请求限流中间件
-  - 添加输入验证和清理功能
-  - **需求引用**: 7.5, 9.1, 9.2
+<br>
 
-- [ ] 9.2 实现输入验证
-  - 使用 express-validator 进行请求验证
-  - 验证标题长度和内容大小限制
-  - 验证 UUID 格式的 secret
-  - 实现自定义验证错误处理
-  - **需求引用**: 9.2, 9.3
+#### 3.1. Implement SQLite Database Schema
+-   **Description:** Create the SQLite database schema using `better-sqlite3`. This includes the `posts` table and triggers for automatic timestamp updates.
+-   **Acceptance Criteria:**
+    -   An initialization script creates the `posts` table with columns: `id`, `secret`, `title`, `content`, `created_at`, `updated_at`
+    -   A SQL trigger is in place to automatically update the `updated_at` column on any row modification
+    -   The server correctly connects to or creates the `.db` file on startup
+    -   Database uses nanoid for public IDs and randomUUID for secrets
+-   **Dependencies:** 1.1
+-   **Complexity:** Medium
+-   **Technical Considerations:** The schema script should be idempotent (i.e., safe to run multiple times). Use `CREATE TABLE IF NOT EXISTS`.
 
-### 10. 错误处理和日志系统
-- [ ] 10.1 实现全局错误处理
-  - 创建 `server/src/middleware/errorHandler.ts`
-  - 定义标准错误响应格式
-  - 实现不同类型错误的状态码映射
-  - 添加错误日志记录功能
-  - **需求引用**: 9.1, 10.1, 10.3
+#### 3.2. Set Up Express Server and Middleware
+-   **Description:** Initialize an Express.js application and configure the core middleware stack.
+-   **Acceptance Criteria:**
+    -   Express server is set up in `server/`
+    -   Middleware for JSON body parsing, CORS, helmet security headers, and request logging is implemented
+    -   A centralized error handling middleware is created and registered
+    -   Rate limiting middleware is configured using express-rate-limit
+-   **Dependencies:** 1.1
+-   **Complexity:** Medium
+-   **Technical Considerations:** The logging middleware should provide structured JSON logs for production monitoring.
 
-- [ ] 10.2 实现日志中间件
-  - 创建 `server/src/middleware/logger.ts` 文件
-  - 记录所有API请求和响应
-  - 实现结构化日志输出
-  - 配置不同环境的日志级别
-  - **需求引用**: 7.5, 10.3
+#### 3.3. Implement API Endpoints
+-   **Description:** Implement the core API endpoints (`POST /`, `GET /:id`, `PUT /:id`, `DELETE /:id`, `GET /health`).
+-   **Acceptance Criteria:**
+    -   `POST /`: Creates a new post. Returns `{id, secret, url}`
+    -   `GET /:id`: Retrieves and renders a post. Returns HTML or JSON based on Accept header
+    -   `PUT /:id`: Updates a post with Bearer token authentication
+    -   `DELETE /:id`: Deletes a post with Bearer token authentication  
+    -   `GET /health`: Returns system health status
+    -   All endpoints use standardized error response format
+-   **Dependencies:** 3.1, 3.2, 5.1, 5.3, 5.4
+-   **Complexity:** High
+-   **Technical Considerations:** Business logic should be separated into service/controller layers. Implement proper Bearer token validation.
 
-### 11. Docker 容器化和部署配置
-- [ ] 11.1 创建 Dockerfile 和构建配置
-  - 创建 `server/Dockerfile` 应用容器构建文件
-  - 配置 Node.js 运行环境和依赖安装
-  - 设置非 root 用户和权限管理
-  - 配置容器启动命令和端口暴露
-  - **需求引用**: 7.3, 11.1
+#### 3.4. Implement Caching Layer
+-   **Description:** Integrate `node-cache` to cache responses for the `GET /:id` endpoint.
+-   **Acceptance Criteria:**
+    -   A successful `GET` request for a specific ID populates the cache
+    -   Subsequent requests for the same ID are served from the cache until TTL expires
+    -   `PUT` and `DELETE` operations correctly invalidate the corresponding cache entry
+    -   Both HTML and JSON responses are cached separately
+-   **Dependencies:** 3.3
+-   **Complexity:** Medium
+-   **Technical Considerations:** The cache TTL should be configurable via environment variables.
 
-- [ ] 11.2 配置 Docker Compose 服务编排
-  - 创建 `docker-compose.yml` 文件
-  - 配置应用容器、Nginx 容器和 Certbot 容器
-  - 设置容器间网络通信和数据卷挂载
-  - 配置环境变量和重启策略
-  - **需求引用**: 7.8, 11.2
+#### 3.5. Implement Markdown Rendering and Sanitization
+-   **Description:** Add server-side Markdown to HTML conversion with DOMPurify sanitization.
+-   **Acceptance Criteria:**
+    -   Raw Markdown content is stored in database without modification
+    -   HTML rendering happens only when serving `GET /:id` requests with HTML Accept header
+    -   DOMPurify sanitizes rendered HTML before sending to browser
+    -   Markdown rendering supports basic syntax (headings, lists, links, code blocks)
+-   **Dependencies:** 3.3
+-   **Complexity:** Medium
+-   **Technical Considerations:** Sanitize at render time, not storage time to preserve original content.
 
-- [ ] 11.3 配置 Nginx 反向代理
-  - 创建 `server/nginx/nginx.conf` 配置文件
-  - 设置 HTTP 到 HTTPS 重定向规则
-  - 配置 SSL 证书路径和代理转发规则
-  - 添加 Let's Encrypt ACME 挑战支持
-  - **需求引用**: 7.7, 7.9, 11.4
+---
 
-- [ ] 11.4 实现自动化部署脚本
-  - 创建 `deploy.sh` 部署自动化脚本
-  - 实现代码拉取、容器构建和服务重启
-  - 添加健康检查和部署状态验证
-  - 配置错误处理和回滚机制
-  - **需求引用**: 11.3
+### 4. Frontend/Plugin Tasks
 
-- [ ] 11.5 配置 SSL 证书管理
-  - 配置 Let's Encrypt 证书自动申请
-  - 设置证书自动续期任务
-  - 验证 HTTPS 访问和证书有效性
-  - 配置域名解析指向 VPS IP
-  - **需求引用**: 7.9, 9.3
+This section covers the Obsidian plugin implementation.
 
-### 12. 数据库和存储管理
-- [ ] 12.1 实现数据库初始化
-  - 创建数据库文件和表结构
-  - 实现自动迁移脚本
-  - 添加数据完整性检查
-  - 配置数据库连接池
-  - **需求引用**: 7.2, 10.2
+<br>
 
-- [ ] 12.2 添加数据备份机制
-  - 实现定期数据备份功能
-  - 配置 Docker 数据卷持久化存储
-  - 添加数据恢复流程和容器数据迁移
-  - **需求引用**: 10.5, 11.5
+#### 4.1. Set Up Plugin Architecture
+-   **Description:** Scaffold the basic Obsidian plugin structure, including `main.ts`, `manifest.json`, and `styles.css`.
+-   **Acceptance Criteria:**
+    -   The plugin loads successfully in Obsidian's development mode
+    -   The `onload` and `onunload` methods are implemented correctly to register and clean up resources
+    -   esbuild configuration outputs to project root for Obsidian compatibility
+-   **Dependencies:** 1.1
+-   **Complexity:** Medium
+-   **Technical Considerations:** Ensure build output is compatible with Obsidian's plugin loading mechanism.
 
-### 13. 测试和验证
-- [ ] 13.1 编写单元测试
-  - 测试 ID 生成器的唯一性和格式
-  - 测试数据模型的 CRUD 操作
-  - 测试 Markdown 渲染功能
-  - 测试 secret 验证逻辑
-  - **需求引用**: 2.4, 3.4, 5.5, 9.1
+#### 4.2. Implement Settings Tab
+-   **Description:** Create a settings tab for the plugin where users can configure the server URL.
+-   **Acceptance Criteria:**
+    -   The settings tab appears in Obsidian's settings window
+    -   It contains input field for "Server URL" with default value
+    -   Values are saved and loaded using Obsidian's `saveData` and `loadData` APIs
+    -   Plugin validates URL format and shows appropriate error messages
+-   **Dependencies:** 4.1
+-   **Complexity:** Medium
+-   **Technical Considerations:** This makes the plugin portable and enables self-hosting. Validate URL format to prevent configuration errors.
 
-- [ ] 13.2 编写集成测试
-  - 测试所有 API 端点的完整流程
-  - 测试错误处理和边界情况
-  - 测试并发访问和性能
-  - 验证安全防护措施有效性
-  - **需求引用**: 8.1, 8.2, 8.3, 9.2
+#### 4.3. Implement API Client Service
+-   **Description:** Create a dedicated TypeScript class or module to handle all HTTP requests to the backend server.
+-   **Acceptance Criteria:**
+    -   The client uses the URL from plugin settings
+    -   Methods exist for `publishPost`, `updatePost`, `deletePost`
+    -   It correctly sets the `Authorization: Bearer <secret>` header for authenticated requests
+    -   It handles network errors and non-2xx responses gracefully with user notifications
+-   **Dependencies:** 4.2, 2.1
+-   **Complexity:** Medium
+-   **Technical Considerations:** Use modern fetch API with proper error handling and timeout configuration.
 
-- [ ] 13.3 端到端测试
-  - 测试客户端插件与服务端的完整交互
-  - 验证文章发布、更新、删除流程
-  - 测试浏览器访问发布的文章
-  - 验证所有用户界面功能正常
-  - **需求引用**: 1.2, 1.3, 5.1, 5.2, 5.3
+#### 4.4. Implement Local Data Management
+-   **Description:** Create a system to track published posts locally within the plugin.
+-   **Acceptance Criteria:**
+    -   Plugin maintains mapping between local file paths and published post metadata
+    -   Data is persisted using Obsidian's plugin data APIs
+    -   System prevents duplicate publishing of the same note
+    -   Supports tracking post IDs and secrets for updates/deletions
+-   **Dependencies:** 4.1
+-   **Complexity:** Medium
+-   **Technical Considerations:** Use efficient data structures and implement proper data validation.
 
-### 14. 性能优化
-- [ ] 14.1 实现缓存机制
-  - 添加 HTML 渲染结果缓存
-  - 实现HTTP缓存头部设置
-  - 配置 gzip 压缩中间件
-  - 优化数据库查询性能
-  - **需求引用**: 8.1, 8.2, 8.3
+#### 4.5. Implement User Commands and UI
+-   **Description:** Register plugin commands and context menu items for publishing workflow.
+-   **Acceptance Criteria:**
+    -   Commands are available in the Obsidian command palette: "Publish", "Update", "Delete", "Copy URL", "View Posts"
+    -   Context menu items appear on markdown files in file explorer
+    -   Editor menu includes publishing options
+    -   Success/error notifications are shown using Obsidian's Notice API
+    -   Modal dialog shows list of published posts
+-   **Dependencies:** 4.3, 4.4
+-   **Complexity:** High
+-   **Technical Considerations:** Commands should be contextually appropriate (only show update/delete for already published notes).
 
-- [ ] 14.2 数据库性能优化
-  - 创建必要的数据库索引
-  - 分析和优化慢查询
-  - 实现连接池管理
-  - 监控数据库性能指标
-  - **需求引用**: 8.1, 8.2, 10.3
+---
 
-### 15. 最终集成和测试
-- [ ] 15.1 完整系统集成测试
-  - 验证客户端插件正常加载和构建
-  - 测试所有API端点与客户端的交互
-  - 验证部署环境的稳定性
-  - 确认所有需求功能正常工作
-  - **需求引用**: 1.3, 2.6, 3.5, 4.5, 5.3
+### 5. Security & Performance Tasks
 
-- [ ] 15.2 性能和安全验证
-  - 进行压力测试验证并发处理能力
-  - 执行安全扫描检查潜在漏洞
-  - 验证响应时间符合性能要求
-  - 确认错误处理和恢复机制
-  - **需求引用**: 8.1, 8.2, 9.1, 9.2, 10.1
+These tasks are critical for a production-ready system and should be integrated alongside feature development.
 
-## 任务依赖关系
+<br>
 
-- **任务 1-2**: 项目结构搭建，为后续开发提供基础
-- **任务 3-4**: 服务端基础设施，必须在API实现前完成
-- **任务 5**: ID和验证系统，API实现的前置依赖
-- **任务 6**: API实现，核心功能模块
-- **任务 7**: HTML渲染，依赖于任务6的GET端点
-- **任务 8**: 客户端修改，可与服务端并行开发
-- **任务 9-10**: 安全和错误处理，可在API基础功能完成后添加
-- **任务 11-12**: Docker容器化和数据管理，需要服务端功能完整
-- **任务 13-15**: 测试和优化，最终阶段任务
+#### 5.1. Implement Rate Limiting
+-   **Description:** Add rate limiting to the Express server to prevent abuse.
+-   **Acceptance Criteria:**
+    -   The `express-rate-limit` middleware is applied to all API endpoints
+    -   Different limits for different endpoint types (stricter for POST/PUT/DELETE)
+    -   Exceeding the rate limit returns a `429 Too Many Requests` error
+    -   Rate limits are configurable via environment variables
+-   **Dependencies:** 3.2
+-   **Complexity:** Low
+-   **Technical Considerations:** Balance security with usability. Start with reasonable limits.
 
-## 开发里程碑
+#### 5.2. Configure CORS
+-   **Description:** Configure the `cors` middleware to only allow requests from trusted origins.
+-   **Acceptance Criteria:**
+    -   CORS is configured to allow Obsidian app origins (`app://obsidian.md`, etc.)
+    -   Public domain is included in allowed origins for browser access
+    -   Proper headers are configured for preflight requests
+-   **Dependencies:** 3.2
+-   **Complexity:** Low
+-   **Technical Considerations:** This is critical for preventing unauthorized cross-origin requests.
 
-1. **M1 - 项目基础** (任务 1-2): Monorepo结构和类型定义
-2. **M2 - 服务端骨架** (任务 3-5): Express应用和数据库基础
-3. **M3 - 核心功能** (任务 6-8): API端点和客户端集成
-4. **M4 - 生产就绪** (任务 9-12): 安全、日志和Docker容器化部署
-5. **M5 - 发布版本** (任务 13-15): 测试、优化和最终验证
+#### 5.3. Implement Input Validation
+-   **Description:** Add validation for all incoming API request bodies and parameters.
+-   **Acceptance Criteria:**
+    -   Use `express-validator` or similar library to define validation schemas
+    -   Invalid requests return `400 Bad Request` with descriptive error messages
+    -   Validation covers required fields, data types, and content length limits
+    -   SQL injection and XSS prevention measures are in place
+-   **Dependencies:** 3.3
+-   **Complexity:** Medium
+-   **Technical Considerations:** Comprehensive input validation prevents many security issues and improves error messages.
+
+#### 5.4. Implement Authentication Middleware
+-   **Description:** Create middleware to validate Bearer tokens for protected endpoints.
+-   **Acceptance Criteria:**
+    -   Middleware extracts and validates Bearer tokens from Authorization header
+    -   Protected endpoints (`PUT /:id`, `DELETE /:id`) require valid authentication
+    -   Invalid or missing tokens return appropriate error responses
+    -   Token validation includes checking against database secrets
+-   **Dependencies:** 3.1, 3.2
+-   **Complexity:** Medium
+-   **Technical Considerations:** Ensure secure comparison of secrets to prevent timing attacks.
+
+---
+
+### 6. Testing Tasks
+
+A comprehensive test suite ensures reliability and simplifies maintenance.
+
+<br>
+
+#### 6.1. Set Up Server Integration Tests
+-   **Description:** Configure Jest and `supertest` for the server package to write integration tests for the API.
+-   **Acceptance Criteria:**
+    -   A `test` script is added to `server/package.json`
+    -   Tests cover success and failure cases for all API endpoints
+    -   Tests run against an in-memory or temporary test database
+    -   Test coverage includes authentication, validation, and error handling
+-   **Dependencies:** 3.3, 5.4
+-   **Complexity:** High
+-   **Technical Considerations:** Ensure test isolation and proper cleanup between tests.
+
+#### 6.2. Set Up Plugin Unit Tests
+-   **Description:** Configure the client package with `jest-environment-obsidian` to enable unit testing of plugin logic.
+-   **Acceptance Criteria:**
+    -   Jest is configured with `jest-environment-obsidian`
+    -   Modular mocks for Obsidian API are created (App, Vault, Notice, etc.)
+    -   Unit tests cover API client service, settings management, and command logic
+    -   Tests verify error handling and user notification flows
+-   **Dependencies:** 4.3, 4.4, 4.5
+-   **Complexity:** High
+-   **Technical Considerations:** Focus on testing business logic rather than Obsidian API integration details.
+
+---
+
+### 7. Deployment & DevOps Tasks
+
+These tasks prepare the application for production deployment.
+
+<br>
+
+#### 7.1. Containerize the Server Application
+-   **Description:** Create a `Dockerfile` for the server application.
+-   **Acceptance Criteria:**
+    -   The `Dockerfile` builds a production-ready, optimized container image
+    -   Multi-stage builds are used to minimize final image size
+    -   Container runs as non-root user for security
+    -   Proper health check is configured
+-   **Dependencies:** 3.1, 3.2
+-   **Complexity:** Medium
+-   **Technical Considerations:** Optimize for security, size, and startup time.
+
+#### 7.2. Create Docker Compose Orchestration
+-   **Description:** Create a `docker-compose.yml` file to orchestrate the server, Nginx, and SSL certificate management.
+-   **Acceptance Criteria:**
+    -   `docker-compose up` starts all required services
+    -   Volumes are configured for database persistence and SSL certificates
+    -   Environment variable management is properly configured
+    -   Services have proper dependency relationships and restart policies
+-   **Dependencies:** 7.1, 7.3
+-   **Complexity:** Medium
+-   **Technical Considerations:** Include Certbot for automatic SSL certificate management.
+
+#### 7.3. Configure Nginx Reverse Proxy
+-   **Description:** Write comprehensive Nginx configuration file.
+-   **Acceptance Criteria:**
+    -   Nginx handles SSL termination with automatic certificate renewal
+    -   HTTP requests are redirected to HTTPS
+    -   `client_max_body_size` is set appropriately (25M+) to allow large notes
+    -   Proper security headers are configured
+    -   Request forwarding to Node.js app includes proper headers
+-   **Dependencies:** 7.1
+-   **Complexity:** Medium
+-   **Technical Considerations:** The `client_max_body_size` setting is critical to prevent 413 errors.
+
+#### 7.4. Create Deployment Scripts
+-   **Description:** Create automated deployment scripts for production setup.
+-   **Acceptance Criteria:**
+    -   `deploy.sh` script handles full deployment workflow
+    -   Script includes health checks and rollback capabilities
+    -   SSL certificate initial setup and renewal is automated
+    -   Backup and restore procedures are documented and scripted
+-   **Dependencies:** 7.2, 7.3
+-   **Complexity:** Medium
+-   **Technical Considerations:** Scripts should be idempotent and include proper error handling.
+
+---
+
+### 8. Documentation & Quality Assurance
+
+High-quality documentation is essential for long-term project health.
+
+<br>
+
+#### 8.1. Write Code-Level Documentation
+-   **Description:** Add comprehensive code documentation across all packages.
+-   **Acceptance Criteria:**
+    -   All exported functions, classes, and interfaces have TSDoc/JSDoc comments
+    -   Complex business logic includes inline explanations
+    -   API endpoints are documented with parameter descriptions and examples
+    -   Database schema and migrations are documented
+-   **Dependencies:** All development tasks
+-   **Complexity:** Medium
+-   **Technical Considerations:** This can be done incrementally as features are developed.
+
+#### 8.2. Update Project Documentation
+-   **Description:** Create comprehensive user and deployment documentation.
+-   **Acceptance Criteria:**
+    -   `README.md` provides clear project overview and quick start guide
+    -   `DEPLOYMENT.md` includes step-by-step production deployment instructions
+    -   `CLIENT_DEPLOYMENT.md` covers plugin installation and configuration
+    -   All documentation is accurate and includes troubleshooting sections
+-   **Dependencies:** 7.4, All implementation tasks
+-   **Complexity:** Medium
+-   **Technical Considerations:** Documentation should be accessible to both technical and non-technical users.
+
+---
+
+This task breakdown provides a comprehensive roadmap for implementing the Obsidian Publishing System. Each task includes clear acceptance criteria and technical considerations to guide the development process.

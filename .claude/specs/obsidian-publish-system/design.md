@@ -1,499 +1,411 @@
-# Obsidian 发布系统 v0.1 设计文档
+# Obsidian Publishing System - Technical Design
 
-## 概览
+This document outlines the complete technical design for the Obsidian Publishing System, a monorepo project consisting of an Obsidian plugin client and an Express.js web publishing service.
 
-本设计文档基于需求文档，详细描述了如何构建一个完整的 Obsidian 笔记发布系统。系统采用客户端-服务端架构，客户端为现有的 Obsidian 插件（修改 base URL），服务端为新开发的 Express.js 应用，使用 Docker 容器化部署在 VPS 服务器上。
+## 1. System Architecture Overview
 
-## 架构
+The system is a client-server application. The **client** is an Obsidian plugin that allows users to publish notes. The **server** is a web service that receives, stores, and serves these notes to be viewed in a web browser.
 
-### 系统架构图
+### 1.1. Monorepo Structure
+
+The project is organized as a monorepo to facilitate code sharing and streamlined development:
+
+```
+.
+├── client/          # Obsidian plugin (TypeScript, esbuild)
+├── server/          # Express.js API server (TypeScript, Docker)
+├── shared/          # Shared TypeScript interfaces and types
+├── deployment/      # Docker Compose, Nginx config, deployment scripts
+└── design.md        # This document
+```
+
+### 1.2. C4 Container Diagram
+
+This diagram illustrates the high-level architecture and interactions between the major components of the system.
 
 ```mermaid
-graph TB
-    subgraph "客户端 (Obsidian Plugin)"
-        A[Obsidian Editor]
-        B[Plugin Commands]
-        C[HTTP Client]
-    end
-    
-    subgraph "网络层"
-        D[HTTPS API Calls]
-    end
-    
-    subgraph "VPS 服务器"
-        subgraph "Docker Compose Stack"
-            E[Nginx Container<br/>反向代理 + SSL]
-            F[Node.js App Container<br/>Express.js API]
-            G[Data Volume<br/>SQLite Database]
-            H[Certbot Container<br/>SSL 证书管理]
-        end
-    end
-    
-    subgraph "外部访问"
-        I[Web Browser]
-        J[Published Articles]
-    end
-    
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F --> G
-    I --> E
-    E --> J
-    H -.-> E
+C4Container
+    title Container diagram for Obsidian Publishing System
+
+    Person(user, "Obsidian User", "Writes and manages notes.")
+    System_Boundary(obsidian, "Obsidian Desktop App") {
+        Container(plugin, "Obsidian Plugin", "TypeScript", "Allows user to publish, update, and delete notes from their vault.")
+    }
+
+    System_Boundary(server_system, "Web Publishing Service") {
+        Container(api, "Web Server", "Node.js, Express", "Exposes a REST API for managing posts. Serves published content.")
+        ContainerDb(db, "Database", "SQLite", "Stores post content, IDs, and secrets.")
+        Container(cache, "In-Memory Cache", "node-cache", "Caches HTML/JSON responses for high-performance reads.")
+    }
+
+    Person(reader, "Web Visitor", "Views published notes in a browser.")
+
+    Rel(user, plugin, "Uses")
+    Rel(plugin, api, "Publishes & manages notes", "HTTPS/JSON")
+
+    Rel(api, db, "Reads/Writes", "SQL")
+    Rel(api, cache, "Reads/Writes")
+    Rel_Back(api, reader, "Serves note content", "HTTPS")
+
+    Rel_Back(cache, api, "Returns cached data")
 ```
 
-### 项目结构设计
+## 2. Component Design (Shared Types)
 
-```
-publish-obsidian-plugin/
-├── client/                     # Obsidian 插件源码
-│   ├── main.ts                # 插件主入口
-│   ├── src/
-│   │   ├── obsius.ts          # API 客户端逻辑
-│   │   ├── http.ts            # HTTP 工具
-│   │   ├── text.ts            # 国际化文本
-│   │   └── modals.ts          # UI 模态框
-│   ├── manifest.json          # 插件清单
-│   ├── package.json           # 客户端依赖
-│   └── esbuild.config.mjs     # 构建配置
-├── server/                     # Express 服务端
-│   ├── src/
-│   │   ├── app.ts             # Express 应用主文件
-│   │   ├── routes/
-│   │   │   ├── index.ts       # 路由定义
-│   │   │   └── posts.ts       # 文章相关路由
-│   │   ├── middleware/
-│   │   │   ├── cors.ts        # CORS 中间件
-│   │   │   ├── security.ts    # 安全中间件
-│   │   │   └── logger.ts      # 日志中间件
-│   │   ├── models/
-│   │   │   ├── database.ts    # 数据库连接
-│   │   │   └── post.ts        # 文章数据模型
-│   │   ├── utils/
-│   │   │   ├── idGenerator.ts # ID 生成器
-│   │   │   └── markdown.ts    # Markdown 渲染
-│   │   └── templates/
-│   │       └── article.html   # 文章模板
-│   ├── database/
-│   │   └── posts.db          # SQLite 数据库文件
-│   ├── package.json          # 服务端依赖
-│   ├── Dockerfile            # 应用容器构建文件
-│   └── nginx/
-│       └── nginx.conf        # Nginx 反向代理配置
-├── shared/                    # 共享类型定义
-│   └── types.ts              # API 接口类型
-├── docker-compose.yml        # Docker 服务编排文件
-├── deploy.sh                 # 自动化部署脚本
-├── main.js                   # 构建输出 (根目录)
-├── manifest.json             # 符号链接到 client/
-├── package.json              # 根 package.json (工作区)
-└── README.md
-```
+A `shared` module contains TypeScript interfaces used by both the client and server to ensure type safety and consistency across the system.
 
-## 组件和接口
-
-### 客户端组件
-
-#### 1. Base URL 配置
-- **文件**: `client/src/obsius.ts`
-- **修改**: 第4行 `const baseUrl = "https://share.141029.xyz";`
-- **影响**: 所有 API 调用将指向新域名
-
-#### 2. API 客户端保持不变
-- **接口契约**: 维持现有的 `obsiusWrapper` 接口
-- **HTTP 方法**: POST, PUT, DELETE 保持原有签名
-- **错误处理**: 保持现有的 try-catch 模式
-
-### 服务端组件
-
-#### 1. Express 应用 (`server/src/app.ts`)
 ```typescript
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import { postsRouter } from './routes/posts';
-import { loggerMiddleware } from './middleware/logger';
+// shared/types.ts
 
-const app = express();
-
-// 中间件栈
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
-app.use(loggerMiddleware);
-
-// 路由
-app.use('/', postsRouter);
-
-export default app;
-```
-
-#### 2. 路由层 (`server/src/routes/posts.ts`)
-```typescript
-import express from 'express';
-import { PostController } from '../controllers/postController';
-
-const router = express.Router();
-const postController = new PostController();
-
-// API 端点
-router.post('/', postController.createPost);
-router.get('/:id', postController.getPost);
-router.put('/:id', postController.updatePost);
-router.delete('/:id', postController.deletePost);
-
-export { router as postsRouter };
-```
-
-#### 3. 数据库模型 (`server/src/models/post.ts`)
-```typescript
+/**
+ * Represents a published post stored in the database.
+ */
 export interface Post {
+  /**
+   * Publicly visible ID, 8 characters long.
+   * @example "aBcDeFgH"
+   */
   id: string;
+
+  /**
+   * Secret key for updating or deleting the post.
+   * This is a UUID and is never exposed publicly.
+   */
   secret: string;
-  title: string;
+
+  /**
+   * The raw Markdown content of the note.
+   */
   content: string;
+
+  /**
+   * The title of the note.
+   */
+  title: string;
+
+  /**
+   * ISO 8601 timestamp of when the post was created.
+   * @example "2025-07-30T10:00:00.000Z"
+   */
   created_at: string;
+
+  /**
+   * ISO 8601 timestamp of when the post was last updated.
+   * @example "2025-07-30T10:00:00.000Z"
+   */
   updated_at: string;
 }
 
-export class PostModel {
-  // SQLite 操作方法
-  async create(post: Omit<Post, 'created_at' | 'updated_at'>): Promise<Post>;
-  async findById(id: string): Promise<Post | null>;
-  async update(id: string, updates: Partial<Post>): Promise<void>;
-  async delete(id: string): Promise<void>;
+/**
+ * API request body for creating a new post.
+ */
+export interface CreatePostRequest {
+  title: string;
+  content: string;
+}
+
+/**
+ * API response after successfully creating a new post.
+ */
+export interface CreatePostResponse {
+  id: Post['id'];
+  secret: Post['secret'];
+  url: string;
+}
+
+/**
+ * API request body for updating an existing post.
+ */
+export interface UpdatePostRequest {
+  title?: string;
+  content?: string;
+}
+
+/**
+ * Standardized error response from the API.
+ */
+export interface ApiErrorResponse {
+  error: {
+    message: string;
+    code?: string; // e.g., 'NOT_FOUND', 'INVALID_SECRET'
+  };
 }
 ```
 
-## 数据模型
+## 3. Data Flow Diagrams
 
-### SQLite 数据库 Schema
+Mermaid sequence diagrams illustrate the primary user workflows.
+
+### 3.1. Create a New Post
+
+```mermaid
+sequenceDiagram
+    participant P as Obsidian Plugin
+    participant S as API Server
+    participant DB as Database
+
+    P->>S: POST /posts (title, content)
+    S->>S: Generate public ID (nanoid)
+    S->>S: Generate secret (randomUUID)
+    S->>DB: INSERT INTO posts (id, secret, title, content)
+    DB-->>S: Success
+    S->>P: 201 Created { id, secret, url }
+```
+
+### 3.2. Update an Existing Post
+
+```mermaid
+sequenceDiagram
+    participant P as Obsidian Plugin
+    participant S as API Server
+    participant C as Cache
+    participant DB as Database
+
+    P->>S: PUT /posts/:id (title?, content?)<br>Header: Authorization: Bearer <secret>
+    S->>DB: SELECT id FROM posts WHERE id = ? AND secret = ?
+    alt Post found and secret is valid
+        DB-->>S: Returns post
+        S->>DB: UPDATE posts SET ... WHERE id = ?
+        DB-->>S: Success
+        S->>C: INVALDIATE cache for :id
+        C-->>S: OK
+        S->>P: 200 OK
+    else Post not found or secret is invalid
+        DB-->>S: No results
+        S->>P: 404 Not Found or 401 Unauthorized
+    end
+```
+
+### 3.3. View a Published Post
+
+```mermaid
+sequenceDiagram
+    participant V as Web Visitor
+    participant S as API Server
+    participant C as Cache
+    participant DB as Database
+
+    V->>S: GET /posts/:id
+    S->>C: GET cached response for :id
+    alt Cache Hit
+        C-->>S: Returns cached HTML/JSON
+        S-->>V: 200 OK (Cached Response)
+    else Cache Miss
+        C-->>S: null
+        S->>DB: SELECT * FROM posts WHERE id = ?
+        alt Post Found
+            DB-->>S: Returns post data
+            S->>S: Sanitize and render Markdown to HTML
+            S->>C: SET cache for :id with HTML/JSON
+            S-->>V: 200 OK (Rendered Response)
+        else Post Not Found
+            DB-->>S: null
+            S-->>V: 404 Not Found
+        end
+    end
+```
+
+## 4. Database Design
+
+The system uses a single SQLite database file (`server/database/posts.db`) for simplicity and ease of deployment.
+
+### 4.1. Schema (`posts` table)
 
 ```sql
-CREATE TABLE posts (
-  id TEXT PRIMARY KEY,           -- 8位短ID (a1B2c3D4)
-  secret TEXT NOT NULL,          -- UUID v4 用于验证
-  title TEXT NOT NULL,          -- 文章标题
-  content TEXT NOT NULL,        -- Markdown 内容
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS posts (
+    id TEXT PRIMARY KEY NOT NULL,           -- Public, 8-char nanoid
+    secret TEXT NOT NULL UNIQUE,            -- Private, UUID for management
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
-
--- 索引优化
-CREATE INDEX idx_posts_created_at ON posts(created_at);
-CREATE UNIQUE INDEX idx_posts_id ON posts(id);
 ```
 
-### API 接口规范
+### 4.2. ID Generation
 
-#### 创建文章 (POST /)
-```typescript
-// Request
-interface CreatePostRequest {
-  title: string;
-  content: string;
-}
+-   **Public ID (`id`)**: Generated using `nanoid(8)`. This provides a short, URL-friendly, and collision-resistant identifier for public access.
+-   **Secret (`secret`)**: Generated using `crypto.randomUUID()`. This is a cryptographically secure, unguessable token required for any modification or deletion operations.
 
-// Response
-interface CreatePostResponse {
-  id: string;      // 8位短ID
-  secret: string;  // UUID v4
-}
+### 4.3. Triggers
+
+An `updated_at` trigger automatically updates the timestamp on every modification, ensuring data integrity without application-level logic.
+
+```sql
+CREATE TRIGGER IF NOT EXISTS set_timestamp_on_update
+AFTER UPDATE ON posts
+FOR EACH ROW
+BEGIN
+    UPDATE posts
+    SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    WHERE id = OLD.id;
+END;
 ```
 
-#### 更新文章 (PUT /:id)
-```typescript
-// Request
-interface UpdatePostRequest {
-  secret: string;
-  title: string;
-  content: string;
-}
+### 4.4. Indexing Strategy
 
-// Response: 204 No Content
+Indexes are created to ensure fast lookups for common query patterns.
+
+```sql
+-- Index for fast public lookups by ID (primary key is already indexed)
+-- CREATE UNIQUE INDEX idx_posts_id ON posts(id); -- Not needed for PRIMARY KEY
+
+-- Index for fast lookups by secret (for auth checks)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_posts_secret ON posts(secret);
 ```
 
-#### 删除文章 (DELETE /:id)
-```typescript
-// Request Body
-interface DeletePostRequest {
-  secret: string;
-}
+## 5. API Design
 
-// Response: 204 No Content
-```
+The REST API follows standard conventions. All responses are JSON unless a specific `Accept` header (e.g., `text/html`) is provided for the `GET` endpoint.
 
-#### 访问文章 (GET /:id)
-```typescript
-// Response: HTML页面或JSON数据
-// Content-Type: text/html 或 application/json
-```
+### 5.1. Authentication
 
-## 错误处理
+-   **Method**: Bearer Token Authentication.
+-   **Header**: `Authorization: Bearer <secret>`
+-   **Rationale**: This method is simple, stateless, and well-suited for a machine-to-machine API like the one used by the Obsidian plugin. The secret is passed in a standard header, keeping it out of URLs and request bodies. It is required for all state-changing operations (`PUT`, `DELETE`).
 
-### 错误分类和处理策略
+### 5.2. Endpoints
 
-#### 1. 客户端错误处理
-- **网络错误**: 保持现有的 `catch` 块和用户通知
-- **API 错误**: 解析 HTTP 状态码和错误消息
-- **验证错误**: 显示具体的字段错误信息
+#### `POST /posts`
 
-#### 2. 服务端错误处理
-```typescript
-// 全局错误处理中间件
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
-  
-  res.status(statusCode).json({
-    error: {
-      code: statusCode,
-      message: message,
-      timestamp: new Date().toISOString()
-    }
-  });
-});
-```
+-   **Description**: Creates a new post.
+-   **Request Body**: `CreatePostRequest`
+-   **Response**: `201 Created` with `CreatePostResponse` body.
 
-#### 3. 错误码规范
-- **400**: 请求参数错误
-- **401**: Secret 验证失败
-- **404**: 文章不存在
-- **409**: ID 冲突 (重新生成)
-- **500**: 服务器内部错误
+#### `GET /posts/:id`
 
-## 安全设计
+-   **Description**: Retrieves a published post.
+-   **Request Headers**:
+    -   `Accept: application/json` (optional): Returns the raw `Post` object (excluding the secret).
+    -   `Accept: text/html` (default): Returns the content rendered as an HTML page.
+-   **Response**: `200 OK` with HTML or JSON. `404 Not Found` if the ID does not exist.
 
-### 1. Secret 验证机制
-```typescript
-// Secret 生成 (UUID v4)
-import { v4 as uuidv4 } from 'uuid';
-const secret = uuidv4();
+#### `PUT /posts/:id`
 
-// Secret 验证
-const validateSecret = (providedSecret: string, storedSecret: string): boolean => {
-  return providedSecret === storedSecret;
-};
-```
+-   **Description**: Updates an existing post's title or content.
+-   **Authentication**: **Required**. `Authorization: Bearer <secret>`
+-   **Request Body**: `UpdatePostRequest`
+-   **Response**: `200 OK`. `401 Unauthorized` for invalid secret. `404 Not Found` for invalid ID.
 
-### 2. 输入验证和清理
-```typescript
-// 使用 express-validator
-import { body, validationResult } from 'express-validator';
+#### `DELETE /posts/:id`
 
-const postValidation = [
-  body('title').isLength({ min: 1, max: 200 }).escape(),
-  body('content').isLength({ min: 1, max: 100000 }).trim(),
-  body('secret').isUUID(4)
-];
-```
+-   **Description**: Deletes a post.
+-   **Authentication**: **Required**. `Authorization: Bearer <secret>`
+-   **Response**: `204 No Content`. `401 Unauthorized` for invalid secret. `404 Not Found` for invalid ID.
 
-### 3. 安全中间件
-```typescript
-import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+#### `GET /health`
 
-// 安全头部
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"]
-    }
-  }
-}));
+-   **Description**: Health check endpoint for monitoring.
+-   **Response**: `200 OK` with `{ "status": "ok", "timestamp": "..." }`.
 
-// 请求限流
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15分钟
-  max: 100 // 最多100个请求
-});
-app.use(limiter);
-```
+## 6. Security Architecture
 
-## ID 生成策略
+### 6.1. Content Sanitization
 
-### 短 ID 生成算法
-```typescript
-export class IDGenerator {
-  private static readonly CHARS = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  private static readonly ID_LENGTH = 8;
+-   **Strategy**: Sanitize on render, not on ingress.
+-   **Tool**: `DOMPurify` on the server.
+-   **Timing**: When a request for `text/html` is received (`GET /posts/:id`), the raw Markdown is retrieved from the database, converted to HTML, and *then* sanitized with `DOMPurify` before being sent in the response.
+-   **Rationale**: Storing raw Markdown preserves the user's original content perfectly. This allows for future rendering options (e.g., to PDF, different Markdown flavors) and prevents data corruption. Sanitizing at render time ensures that any content served to a browser is safe from XSS attacks.
 
-  static generate(): string {
-    let result = '';
-    for (let i = 0; i < this.ID_LENGTH; i++) {
-      const randomIndex = Math.floor(Math.random() * this.CHARS.length);
-      result += this.CHARS[randomIndex];
-    }
-    return result;
-  }
+### 6.2. Rate Limiting
 
-  // 冲突检测和重试机制
-  static async generateUnique(checkExists: (id: string) => Promise<boolean>): Promise<string> {
-    let attempts = 0;
-    const maxAttempts = 10;
-    
-    while (attempts < maxAttempts) {
-      const id = this.generate();
-      if (!(await checkExists(id))) {
-        return id;
-      }
-      attempts++;
-    }
-    
-    throw new Error('Failed to generate unique ID');
-  }
-}
-```
+-   **Tool**: `express-rate-limit` middleware.
+-   **Configuration**: Apply rate limiting to all API endpoints, with stricter limits on creation (`POST`) and modification (`PUT`, `DELETE`) endpoints to prevent abuse.
+    ```typescript
+    // Example configuration in server/src/app.ts
+    import rateLimit from 'express-rate-limit';
 
-## HTML 渲染设计
-
-### Markdown 到 HTML 转换
-```typescript
-import MarkdownIt from 'markdown-it';
-
-export class MarkdownRenderer {
-  private md: MarkdownIt;
-
-  constructor() {
-    this.md = new MarkdownIt({
-      html: true,
-      linkify: true,
-      typographer: true
+    const apiLimiter = rateLimit({
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 100, // Limit each IP to 100 requests per window
+        standardHeaders: true,
+        legacyHeaders: false,
     });
-  }
 
-  render(markdown: string): string {
-    return this.md.render(markdown);
-  }
-}
+    app.use('/posts', apiLimiter);
+    ```
+
+### 6.3. CORS (Cross-Origin Resource Sharing)
+
+The server will be configured to accept requests specifically from the Obsidian application protocol to allow the plugin to function.
+
+```typescript
+// Example configuration in server/src/app.ts
+import cors from 'cors';
+
+const corsOptions = {
+  origin: [
+    'app://obsidian.md', // Official desktop app
+    /^capacitor:\/\/localhost/, // Mobile
+    /^http:\/\/localhost/, // Development
+    'https://your-domain.com' // The public domain of the service
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
 ```
 
-### HTML 模板设计
-```html
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{title}}</title>
-    <style>
-        body { max-width: 800px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-        h1, h2, h3 { color: #2c3e50; }
-        code { background: #f8f9fa; padding: 2px 4px; border-radius: 3px; }
-        pre { background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto; }
-    </style>
-</head>
-<body>
-    <article>
-        <h1>{{title}}</h1>
-        <div class="content">{{content}}</div>
-        <footer>
-            <small>发布时间: {{created_at}}</small>
-        </footer>
-    </article>
-</body>
-</html>
-```
+## 7. Deployment Architecture
 
-## 部署配置
+The server is designed for containerized deployment using Docker and Docker Compose.
 
-### Docker 配置
+### 7.1. Docker Compose Setup
 
-#### Dockerfile (`server/Dockerfile`)
-```dockerfile
-FROM node:18-alpine
+A `docker-compose.yml` file orchestrates the services.
 
-WORKDIR /app
-
-# 安装依赖
-COPY package*.json ./
-RUN npm ci --only=production
-
-# 复制源码
-COPY src ./src
-COPY database ./database
-
-# 创建非root用户
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-
-# 设置数据目录权限
-RUN chown -R nodejs:nodejs /app/database
-
-USER nodejs
-
-EXPOSE 3000
-
-CMD ["npm", "start"]
-```
-
-#### Docker Compose (`docker-compose.yml`)
 ```yaml
+# deployment/docker-compose.yml
 version: '3.8'
 
 services:
   app:
-    build: ./server
+    build: ../server
+    container_name: obsius-app
+    restart: unless-stopped
+    volumes:
+      - ../server/database:/usr/src/app/database
     environment:
       - NODE_ENV=production
-      - PORT=3000
-      - DB_PATH=/app/data/posts.db
-    volumes:
-      - app_data:/app/data
-    networks:
-      - app_network
-    restart: unless-stopped
+    expose:
+      - '3000'
 
   nginx:
-    image: nginx:alpine
+    image: nginx:latest
+    container_name: obsius-nginx
+    restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
-      - ./server/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ssl_certs:/etc/letsencrypt:ro
-      - ssl_www:/var/www/certbot:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
     depends_on:
       - app
-    networks:
-      - app_network
-    restart: unless-stopped
 
   certbot:
     image: certbot/certbot
+    container_name: obsius-certbot
     volumes:
-      - ssl_certs:/etc/letsencrypt
-      - ssl_www:/var/www/certbot
-    command: certonly --webroot --webroot-path=/var/www/certbot --email your-email@example.com --agree-tos --no-eff-email -d share.141029.xyz
-
-volumes:
-  app_data:
-  ssl_certs:
-  ssl_www:
-
-networks:
-  app_network:
-    driver: bridge
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    command: certonly --webroot --webroot-path=/var/www/certbot --email your-email@example.com -d your-domain.com --agree-tos --no-eff-email -n
 ```
 
-#### Nginx 配置 (`server/nginx/nginx.conf`)
+### 7.2. Nginx Configuration
+
+Nginx acts as a reverse proxy, handles SSL termination, and is configured to allow large post sizes.
+
 ```nginx
-events {
-    worker_connections 1024;
-}
+# deployment/nginx.conf
+events {}
 
 http {
-    upstream app {
-        server app:3000;
-    }
-
     server {
         listen 80;
-        server_name share.141029.xyz;
+        server_name your-domain.com;
 
         location /.well-known/acme-challenge/ {
             root /var/www/certbot;
@@ -506,13 +418,16 @@ http {
 
     server {
         listen 443 ssl;
-        server_name share.141029.xyz;
+        server_name your-domain.com;
 
-        ssl_certificate /etc/letsencrypt/live/share.141029.xyz/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/share.141029.xyz/privkey.pem;
+        ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+
+        # Critical for allowing large notes to be published
+        client_max_body_size 50m;
 
         location / {
-            proxy_pass http://app;
+            proxy_pass http://app:3000;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -521,123 +436,72 @@ http {
     }
 }
 ```
+**Note**: `client_max_body_size 50m;` is crucial to prevent Nginx from rejecting large requests from the Obsidian plugin with a `413 Payload Too Large` error.
 
-### 部署脚本 (`deploy.sh`)
-```bash
-#!/bin/bash
-set -e
+## 8. Plugin Settings Tab
 
-echo "🚀 开始部署 Obsidian 发布系统..."
+To avoid hardcoding the server URL, the Obsidian plugin will feature a settings tab.
 
-# 拉取最新代码
-git pull origin main
+-   **Functionality**: Provides an input field for the user to enter their self-hosted server's base URL (e.g., `https://notes.my-domain.com`).
+-   **Storage**: The URL will be saved using Obsidian's `saveData` and `loadData` plugin API methods.
+-   **Default**: A default value can be provided, but the user must be able to override it.
+-   **Impact**: This makes the plugin portable and usable by anyone who deploys their own instance of the server, a critical feature for a self-hosted solution.
 
-# 停止现有服务
-docker-compose down
+## 9. Caching Strategy
 
-# 构建并启动服务
-docker-compose build --no-cache
-docker-compose up -d
+-   **Tool**: `node-cache` library on the server.
+-   **Strategy**: Cache successful `GET /posts/:id` responses to reduce database load and improve response times for frequently accessed notes.
+-   **Cache Key**: The post's public `id`.
+-   **Cache Content**: The final rendered HTML or the raw JSON object.
+-   **Invalidation**: The cache for a specific `id` is programmatically invalidated (`del`) whenever a `PUT` or `DELETE` request for that same `id` is successfully processed. This ensures that viewers always see the most up-to-date content.
 
-# 等待服务启动
-echo "⏳ 等待服务启动..."
-sleep 10
+## 10. Testing Strategy
 
-# 健康检查
-if curl -f http://localhost/health > /dev/null 2>&1; then
-    echo "✅ 部署成功！服务运行正常"
-else
-    echo "❌ 部署失败，请检查日志"
-    docker-compose logs
-    exit 1
-fi
+### 10.1. Client (Obsidian Plugin)
 
-echo "🎉 部署完成！"
+-   **Framework**: Jest with `jest-environment-obsidian`.
+-   **Approach**: This environment provides a mocked Obsidian API, but to improve testability, we will create our own modular mocks for specific Obsidian API surfaces (`Vault`, `Notice`, `PluginSettingTab`, etc.).
+-   **Benefits**: This allows for true unit testing of plugin logic (e.g., API client, UI components) in isolation from the full Obsidian environment, leading to faster and more reliable tests.
+
+### 10.2. Server (Express.js API)
+
+-   **Framework**: Jest and `supertest`.
+-   **Approach**: Continue with the existing strategy of writing integration tests that make real HTTP requests to the API endpoints. These tests will cover the full request/response cycle, including database interactions, authentication logic, and error handling. An in-memory SQLite database will be used for test runs to ensure isolation.
+
+## 11. Error Handling
+
+A standardized approach to error handling provides a consistent experience for the user and simplifies client-side logic.
+
+### 11.1. Standardized Error Response
+
+All API errors will return a JSON object with a consistent shape:
+
+```json
+{
+  "error": {
+    "message": "The secret provided is invalid or does not have permission.",
+    "code": "INVALID_SECRET"
+  }
+}
 ```
 
-### 环境变量配置
-```
-NODE_ENV=production
-PORT=3000
-DB_PATH=/app/data/posts.db
-CORS_ORIGIN=https://share.141029.xyz
-SSL_EMAIL=your-email@example.com
-DOMAIN=share.141029.xyz
-```
+### 11.2. End-to-End Flow Example
 
-## 测试策略
+1.  **Action**: User tries to update a post with an incorrect secret.
+2.  **Client**: Plugin sends `PUT /posts/aBcDeFgH` with `Authorization: Bearer <wrong-secret>`.
+3.  **Server**: The API checks the database, fails to find a match for the ID and secret, and responds with `401 Unauthorized` and the `ApiErrorResponse` body.
+4.  **Client**: The plugin's HTTP client catches the non-2xx response, parses the JSON body, and uses the `message` to create a user-facing notification within Obsidian using `new Notice('Error updating post: The secret provided is invalid...')`.
 
-### 1. 单元测试
-- **数据库操作**: PostModel 的 CRUD 方法
-- **ID 生成器**: 唯一性和格式验证
-- **Markdown 渲染**: HTML 输出正确性
+## 12. Performance & Monitoring
 
-### 2. 集成测试
-- **API 端点**: 每个 REST 端点的完整流程
-- **错误处理**: 各种错误场景的响应
-- **安全验证**: Secret 验证和输入清理
+### 12.1. Performance Considerations
 
-### 3. 端到端测试
-- **客户端集成**: Obsidian 插件与服务端的完整交互
-- **浏览器访问**: 发布文章的公开访问测试
-- **性能测试**: API 响应时间和并发处理能力
+-   **Caching**: The `node-cache` strategy is the primary performance enhancement for read operations.
+-   **Database Indexing**: Proper indexing on `id` and `secret` columns ensures that database lookups remain fast as the number of posts grows.
+-   **Payload Size**: `client_max_body_size` in Nginx prevents request failures for large notes. The client should also be mindful of sending excessively large payloads.
 
-### 测试框架选择
-```typescript
-// 使用 Jest + Supertest
-import request from 'supertest';
-import app from '../src/app';
+### 12.2. Monitoring
 
-describe('POST /', () => {
-  it('should create a new post', async () => {
-    const response = await request(app)
-      .post('/')
-      .send({ title: 'Test', content: '# Test Content' })
-      .expect(201);
-      
-    expect(response.body).toHaveProperty('id');
-    expect(response.body).toHaveProperty('secret');
-  });
-});
-```
-
-## 性能优化
-
-### 1. 数据库优化
-- **连接池**: 使用 SQLite 连接池管理
-- **索引策略**: 在 id 和 created_at 字段建立索引
-- **查询优化**: 避免 N+1 查询问题
-
-### 2. 缓存策略
-- **HTML 缓存**: 对渲染的 HTML 进行内存缓存
-- **HTTP 缓存**: 设置适当的 Cache-Control 头部
-
-### 3. 响应优化
-- **Gzip 压缩**: 启用响应内容压缩
-- **静态资源**: CSS 内联减少请求数量
-
-## 监控和日志
-
-### 日志记录策略
-```typescript
-import winston from 'winston';
-
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.Console(),
-    new winston.transports.File({ filename: 'app.log' })
-  ]
-});
-```
-
-### 关键指标监控
-- API 响应时间
-- 错误率和错误类型
-- 数据库连接状态
-- 内存和 CPU 使用情况
+-   **Health Endpoint**: The `GET /health` endpoint provides a simple, lightweight way for uptime monitoring tools (like Uptime Kuma, Pingdom) to check if the service is running.
+-   **Logging**: The application will use a structured logger (e.g., `pino`) to log requests, errors, and key application events. These logs can be monitored via `docker-compose logs -f`.
+-   **System Metrics**: Basic server health (CPU, memory) can be monitored using `docker stats`.

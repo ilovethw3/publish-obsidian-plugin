@@ -1,393 +1,277 @@
-# Obsidian 客户端插件部署文档
+# Obsidian Publishing System: Client Deployment Guide
 
-本文档详细说明如何构建、安装和配置 Obsidian 发布插件。
+Welcome to the official client deployment guide for the Obsidian Publishing System plugin. This document provides a comprehensive overview of the plugin's installation, configuration, usage, and development.
 
-## 📋 目录
+## Table of Contents
+1. [System Requirements](#1-system-requirements)
+2. [Installation Methods](#2-installation-methods)
+3. [Configuration Management](#3-configuration-management)
+4. [Complete User Guide](#4-complete-user-guide)
+5. [Development Environment & Build Process](#5-development-environment--build-process)
+6. [Advanced Configuration](#6-advanced-configuration)
+7. [Security Best Practices](#7-security-best-practices)
+8. [Automation & CI/CD](#8-automation--ci-cd)
+9. [Troubleshooting](#9-troubleshooting)
 
-- [系统要求](#系统要求)
-- [构建插件](#构建插件)
-- [安装插件](#安装插件)
-- [插件配置](#插件配置)
-- [使用指南](#使用指南)
-- [故障排除](#故障排除)
-- [开发模式](#开发模式)
+---
 
-## 📋 系统要求
+## 1. System Requirements
 
-### 必需软件
-- **Obsidian**: v0.12.0 或更高版本
-- **Node.js**: v16.x 或更高版本
-- **npm**: v7.x 或更高版本
+### For End-Users
+- **Obsidian**: The latest version of the Obsidian desktop application.
+- **Obsidian Publishing Server**: Access to a running instance of the corresponding Express.js server.
+- **Credentials**: You must have the **Server URL** and a valid **Authentication Token** (UUID secret) provided by your server administrator.
 
-### 支持的平台
-- Windows 10/11
-- macOS 10.15+ (Catalina)
-- Linux (Ubuntu 18.04+)
+### For Developers
+- **Node.js**: Version 18.x or later.
+- **npm** or **yarn**: For package management.
+- **Git**: For version control.
+- **Obsidian Desktop App**: A dedicated vault for testing the plugin is highly recommended.
 
-## 🔧 构建插件
+---
 
-### 1. 克隆项目
-```bash
-git clone https://github.com/ilovethw3/publish-obsidian-plugin.git
-cd publish-obsidian-plugin
-```
+## 2. Installation Methods
 
-### 2. 安装依赖
-```bash
-# 安装根项目依赖
-npm install
+Choose the installation method that best suits your needs.
 
-# 安装客户端依赖
-cd client
-npm install
-```
+### Method 1: Manual Installation (Standard Users)
+This is the most straightforward way to install the plugin.
 
-### 3. 构建插件
-```bash
-# 在 client 目录中执行
-npm run build
+1. Navigate to the **Releases** page of the plugin's GitHub repository.
+2. Download the three build artifacts from the latest release: `main.js`, `manifest.json`, and `styles.css`.
+3. In your Obsidian vault, go to the `.obsidian/plugins/` directory. Create it if it doesn't exist.
+4. Create a new folder inside `plugins` named `obsidian-publishing-system`.
+5. Place the three downloaded files inside this new folder.
+6. Restart Obsidian or reload the app by pressing `Ctrl+R` (or `Cmd+R` on macOS).
+7. Go to **Settings** > **Community Plugins**, find "Obsidian Publishing System," and enable it.
 
-# 或者使用开发模式（自动重建）
-npm run dev
-```
+### Method 2: Using BRAT (Beta Testers & Developers)
+For those who want to stay on the cutting edge or test beta versions.
 
-### 4. 验证构建
-构建成功后，应该在根目录看到以下文件：
-- `main.js` - 插件主文件
-- `manifest.json` - 插件清单
-- `styles.css` - 插件样式
+1. Install the **Obsidian42 - BRAT** plugin from the in-app Community Plugins browser.
+2. Enable BRAT and open its settings.
+3. Click **Add Beta plugin** and enter the GitHub repository URL for this plugin.
+4. BRAT will automatically install the plugin. You can then enable it under **Community Plugins**.
 
-## 📥 安装插件
+### Method 3: Development Setup
+For developers who intend to contribute or create custom builds.
 
-### 方法一：手动安装（推荐）
-
-1. **找到 Obsidian 插件目录**
-   - Windows: `%APPDATA%\Obsidian\plugins\`
-   - macOS: `~/Library/Application Support/obsidian/plugins/`
-   - Linux: `~/.config/obsidian/plugins/`
-
-2. **创建插件文件夹**
+1. Clone the repository to your local machine:
    ```bash
-   mkdir -p /path/to/obsidian/plugins/obsius-publish/
+   git clone <repository_url>
+   cd obsidian-publishing-system
    ```
-
-3. **复制插件文件**
-   ```bash
-   cp main.js manifest.json styles.css /path/to/obsidian/plugins/obsius-publish/
-   ```
-
-### 方法二：使用 BRAT（测试版本）
-
-1. 安装 BRAT 插件
-2. 在 BRAT 设置中添加仓库: `https://github.com/ilovethw3/publish-obsidian-plugin`
-3. 启用插件
-
-### 方法三：开发者模式
-
-1. **链接到开发目录**
-   ```bash
-   # 在插件目录中创建符号链接
-   ln -s /path/to/publish-obsidian-plugin /path/to/obsidian/plugins/obsius-publish
-   ```
-
-2. **热重载开发**
-   ```bash
-   cd client
-   npm run dev
-   ```
-
-## ⚙️ 插件配置
-
-### 1. 启用插件
-1. 打开 Obsidian
-2. 前往 `设置` → `第三方插件`
-3. 关闭 `安全模式`
-4. 找到 `Obsius Publish` 插件并启用
-
-### 2. 验证连接
-1. 确认服务端已部署并运行
-2. 检查域名 `https://share.141029.xyz` 是否可访问
-3. 测试健康检查端点: `https://share.141029.xyz/health`
-
-### 3. 插件设置
-目前插件使用硬编码的服务端地址。如需修改：
-
-1. 编辑 `client/src/obsius.ts`
-2. 修改第4行的 `baseUrl` 常量:
-   ```typescript
-   const baseUrl = "https://your-domain.com";
-   ```
-3. 重新构建插件
-
-## 📖 使用指南
-
-### 发布新笔记
-
-#### 方法1: 右键菜单
-1. 在文件浏览器中右键点击 Markdown 文件
-2. 选择 "Publish to Obsius"
-3. URL 将自动复制到剪贴板
-
-#### 方法2: 编辑器菜单
-1. 在编辑器中打开 Markdown 文件
-2. 点击编辑器菜单（三点图标）
-3. 选择 "Publish to Obsius"
-
-#### 方法3: 命令面板
-1. 按 `Ctrl/Cmd + P` 打开命令面板
-2. 输入 "Publish to Obsius"
-3. 按回车执行
-
-### 更新已发布的笔记
-
-使用与发布相同的方法，但选择：
-- "Update in Obsius"（右键菜单）
-- "Update in Obsius"（编辑器菜单）
-- "Update in Obsius"（命令面板）
-
-### 获取公开链接
-
-1. 右键点击已发布的文件
-2. 选择 "Copy Obsius URL"
-3. URL 将复制到剪贴板
-
-### 删除发布的笔记
-
-1. 右键点击已发布的文件
-2. 选择 "Remove from Obsius"
-3. 文件将从服务器删除（可能有缓存延迟）
-
-### 查看已发布的文章
-
-1. 打开命令面板 (`Ctrl/Cmd + P`)
-2. 输入 "View published posts"
-3. 在弹出的模态框中查看所有已发布的文章
-
-## 🔧 故障排除
-
-### 常见问题
-
-#### 1. 插件无法加载
-**症状**: 插件在设置中不显示或无法启用
-
-**解决方案**:
-```bash
-# 检查文件权限
-chmod 644 main.js manifest.json styles.css
-
-# 检查文件完整性
-ls -la main.js manifest.json styles.css
-
-# 重新构建
-cd client
-npm run build
-```
-
-#### 2. 发布失败
-**症状**: 显示 "Failed to publish note to Obsius"
-
-**解决方案**:
-1. **检查网络连接**
-   ```bash
-   curl -I https://share.141029.xyz/health
-   ```
-
-2. **检查服务端状态**
-   - 确认服务端正在运行
-   - 检查防火墙设置
-   - 验证 SSL 证书
-
-3. **查看控制台错误**
-   - 按 `Ctrl/Cmd + Shift + I` 打开开发者工具
-   - 查看 Console 标签页中的错误信息
-
-#### 3. 更新失败
-**症状**: 显示 "Failed to update note in Obsius"
-
-**解决方案**:
-1. **确认文章存在**
-   - 检查文章是否之前已成功发布
-   - 确认本地数据文件未损坏
-
-2. **检查权限**
-   - 确认 secret 信息正确存储
-   - 重新发布文章（删除后重新发布）
-
-#### 4. 中文字符显示问题
-**症状**: 发布的文章中文显示异常
-
-**解决方案**:
-1. 确保 Obsidian 文件使用 UTF-8 编码
-2. 检查服务端字符编码设置
-3. 重新保存并发布文章
-
-### 日志调试
-
-#### 启用详细日志
-在 `client/src/obsius.ts` 中添加调试代码：
-
-```typescript
-// 在相关函数开头添加
-console.log('Publishing post:', { title, content: content.substring(0, 100) });
-
-// 在错误处理中添加
-console.error('Detailed error:', e);
-```
-
-#### 查看插件数据
-插件数据存储在 Obsidian 的插件数据目录中：
-```bash
-# Windows
-%APPDATA%\Obsidian\plugins\obsius-publish\data.json
-
-# macOS
-~/Library/Application Support/obsidian/plugins/obsius-publish/data.json
-
-# Linux
-~/.config/obsidian/plugins/obsius-publish/data.json
-```
-
-## 🛠️ 开发模式
-
-### 设置开发环境
-
-1. **克隆项目**
-   ```bash
-   git clone https://github.com/ilovethw3/publish-obsidian-plugin.git
-   cd publish-obsidian-plugin/client
-   ```
-
-2. **安装依赖**
+2. Install the required dependencies:
    ```bash
    npm install
    ```
-
-3. **启动开发模式**
+3. Run the initial build to generate the plugin files:
    ```bash
-   npm run dev
+   npm run build
    ```
-
-### 开发工作流
-
-1. **修改代码**: 编辑 `client/src/` 目录中的文件
-2. **自动重建**: esbuild 会自动检测变更并重建
-3. **重启插件**: 在 Obsidian 中禁用并重新启用插件
-4. **测试功能**: 验证修改是否生效
-
-### 调试技巧
-
-1. **使用 console.log**
-   ```typescript
-   console.log('Debug info:', data);
+4. Symlink the project directory into your Obsidian vault's plugins folder. This allows the hot-reload development script to work seamlessly.
+   ```bash
+   # Example for macOS/Linux
+   ln -s "$(pwd)" "/path/to/your/vault/.obsidian/plugins/obsidian-publishing-system"
    ```
+5. Reload Obsidian and enable the plugin.
 
-2. **使用 Obsidian Notice**
-   ```typescript
-   new Notice('Debug message');
-   ```
+---
 
-3. **查看网络请求**
-   - 打开开发者工具
-   - 切换到 Network 标签页
-   - 观察 API 请求和响应
+## 3. Configuration Management
 
-### 构建发布版本
+Proper configuration is key to connecting the plugin with your self-hosted server.
 
-```bash
-# 构建生产版本
-npm run build
+### Initial Server Setup
+1. After installing and enabling the plugin, go to **Settings** > **Plugin Options** > **Obsidian Publishing System**.
+2. You will see two fields:
+   - **Server URL**: Enter the full base URL of your Express.js publishing server. It **must** use `https` (e.g., `https://publish.yourdomain.com`).
+   - **Authentication Token**: Paste the UUID secret provided by your server administrator. This token is used as a Bearer token for all API requests.
+3. Your settings are saved automatically.
 
-# 验证文件
-ls -la ../main.js ../manifest.json ../styles.css
-```
+### How Configuration is Stored
+- Your server URL and authentication token are stored locally in your vault at `.obsidian/plugins/obsidian-publishing-system/data.json`.
+- **Never commit `data.json` to a public repository**, as it contains your secret token.
+- The plugin also maintains a local cache of metadata for published files within this `data.json` file to track their published state and public URLs.
 
-## 🚀 自动化部署
+---
 
-### GitHub Actions 构建
-创建 `.github/workflows/build-plugin.yml`：
+## 4. Complete User Guide
+
+The plugin integrates directly into the Obsidian UI via the command palette and context menus.
+
+### Publishing a Note
+- **Via Context Menu**: Right-click on a file in the file explorer and select **Publish to Web**.
+- **Via Command Palette**: With a note open, press `Ctrl+P` (or `Cmd+P`) to open the command palette, search for "Publish current note," and execute it.
+
+The plugin will send the note's content to the server, which will save it and return a public URL.
+
+### Updating a Published Note
+To update a note that is already published, simply perform the publish action again. The plugin will send the updated content to the server, overwriting the previous version.
+
+### Un-publishing a Note
+- **Via Context Menu**: Right-click on a published file and select **Un-publish from Web**.
+- **Via Command Palette**: Open the command palette and execute **Un-publish current note**.
+
+This sends a request to the server to delete the note.
+
+### Copying the Public URL
+Once a note is published, you can easily get its public link.
+- **Via Context Menu**: Right-click on the published file and select **Copy Public URL**. The URL will be copied to your clipboard.
+
+---
+
+## 5. Development Environment & Build Process
+
+### Technical Architecture
+- **Language**: TypeScript
+- **Bundler**: `esbuild` is used for fast and efficient bundling of the TypeScript code into a single `main.js` file.
+- **Framework**: The plugin is built on the official **Obsidian Plugin API**.
+
+### Build Workflow
+The `package.json` file contains two primary scripts for building the plugin:
+
+- **Production Build**: Creates an optimized build for release.
+  ```bash
+  npm run build
+  ```
+- **Development Build**: Starts `esbuild` in watch mode for hot-reloading. Any changes to the source code will trigger an automatic rebuild of `main.js`. For this to work, you must have the plugin enabled in Obsidian.
+  ```bash
+  npm run dev
+  ```
+
+### Debugging and Testing
+- **Developer Console**: The primary tool for debugging is the Obsidian Developer Console. Open it with `Ctrl+Shift+I` (or `Cmd+Option+I` on macOS). All `console.log` statements from the plugin will appear here.
+- **Manual Testing**: The most effective way to test is to set up a dedicated Obsidian vault. Use the development installation method and perform all user actions (publish, update, un-publish, copy URL) to verify functionality against a test server instance.
+
+---
+
+## 6. Advanced Configuration
+
+### Managing Multiple Servers
+The plugin UI is designed to connect to one server at a time. To work with multiple servers, you can use one of these strategies:
+- **Multiple Vaults**: Use a separate Obsidian vault for each server you need to connect to. This is the cleanest approach.
+- **Manual `data.json` Swapping**: For advanced users, you could maintain different `data.json` files and swap them out as needed, but this is error-prone.
+
+### Custom Builds
+You can customize the build process by editing `esbuild.config.mjs`. For example, you could add new plugins for `esbuild` or change the output directory if you are not using a symlink.
+
+### Data Migration
+The plugin's client-side data is minimal. To migrate your setup to a new machine or vault:
+1. Install the plugin in the new location.
+2. Copy the `data.json` file from your old vault's plugin directory (`.obsidian/plugins/obsidian-publishing-system/`) to the new one.
+3. Reload Obsidian. The new plugin instance will now be configured with your server URL and token.
+
+---
+
+## 7. Security Best Practices
+
+### HTTPS and CORS
+- **Enforce HTTPS**: The plugin should only communicate with servers over `https`. The Express.js server **must** be configured with a valid SSL certificate. This prevents your authentication token and note content from being intercepted in transit.
+- **CORS Policy**: The server's CORS (Cross-Origin Resource Sharing) policy must be strictly configured to only accept requests from the Obsidian application origin: `app://obsidian.md`.
+
+### Authentication Token
+- **Treat it as a Password**: Your authentication token grants full access to publish and un-publish notes on the server. Keep it confidential.
+- **Do Not Hardcode**: Never hardcode the token in any scripts or commit it to version control. Always use the plugin's settings UI to configure it.
+
+### Data Protection
+- **Be Mindful of What You Publish**: Remember that any note you publish will be publicly accessible on the internet if your server is public. Do not publish sensitive information.
+
+---
+
+## 8. Automation & CI/CD
+
+You can automate the release process using GitHub Actions. This ensures that every new release is built consistently and includes all necessary artifacts.
+
+Create a file at `.github/workflows/release.yml` with the following content:
 
 ```yaml
-name: Build Plugin
+name: Release Obsidian Plugin
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    tags:
+      - '*'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        
-    - name: Install dependencies
-      run: |
-        cd client
-        npm ci
-        
-    - name: Build plugin
-      run: |
-        cd client
-        npm run build
-        
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: plugin-files
-        path: |
-          main.js
-          manifest.json
-          styles.css
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./main.js
+          asset_name: main.js
+          asset_content_type: application/javascript
+
+      - name: Upload Manifest
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./manifest.json
+          asset_name: manifest.json
+          asset_content_type: application/json
+
+      - name: Upload Styles
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./styles.css
+          asset_name: styles.css
+          asset_content_type: text/css
 ```
+This workflow triggers on any tag push (e.g., `v1.0.1`), builds the plugin, and attaches `main.js`, `manifest.json`, and `styles.css` to a new GitHub Release.
 
-### 本地构建脚本
-创建 `build-plugin.sh`：
+---
 
-```bash
-#!/bin/bash
-set -e
+## 9. Troubleshooting
 
-echo "🔧 Building Obsidian Plugin..."
+### Issue: Plugin fails to load or appears broken.
+- **Solution**: Open the Developer Console (`Ctrl+Shift+I`). Errors during plugin loading will be displayed there. Ensure `main.js` and `manifest.json` are present in the correct plugin directory and that the JSON in `manifest.json` is valid.
 
-# 进入客户端目录
-cd client
+### Issue: "Failed to fetch" or network errors in the console.
+- **Solution 1 (URL)**: Verify the **Server URL** in the plugin settings is correct, includes `https://`, and is accessible from your computer (e.g., by opening it in a browser).
+- **Solution 2 (CORS)**: This is a common server-side issue. The server's CORS policy must explicitly allow the `app://obsidian.md` origin. Check the server logs for CORS errors.
+- **Solution 3 (HTTPS)**: The server must have a valid, trusted SSL certificate. Self-signed certificates will likely cause the connection to fail.
 
-# 安装依赖
-echo "📦 Installing dependencies..."
-npm ci
+### Issue: "Authentication Failed" or `401 Unauthorized` / `403 Forbidden` errors.
+- **Solution**: Your **Authentication Token** is incorrect or has expired. Re-enter the token from your server administrator into the plugin settings and ensure there are no typos or extra spaces.
 
-# 构建插件
-echo "🔨 Building plugin..."
-npm run build
+### Issue: Hot reload (`npm run dev`) isn't working.
+- **Solution**: Confirm that your project folder is correctly symlinked into your vault's `.obsidian/plugins` directory. If not using a symlink, the `esbuild.config.mjs` file must be updated to point its output directly to your vault's plugin folder. Also, ensure Obsidian has the necessary file permissions to read the updated files.
 
-# 验证文件
-echo "✅ Verifying build files..."
-if [ -f "../main.js" ] && [ -f "../manifest.json" ] && [ -f "../styles.css" ]; then
-    echo "🎉 Plugin built successfully!"
-    echo "Files:"
-    ls -la ../main.js ../manifest.json ../styles.css
-else
-    echo "❌ Build failed - missing files"
-    exit 1
-fi
+---
 
-echo "📋 Ready for installation!"
-```
-
-## 🔗 相关链接
-
-- [Obsidian 插件开发文档](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
-- [Obsidian API 参考](https://docs.obsidian.md/Reference/TypeScript+API)
-- [项目 GitHub 仓库](https://github.com/ilovethw3/publish-obsidian-plugin)
-- [问题报告](https://github.com/ilovethw3/publish-obsidian-plugin/issues)
-
-## 📄 许可证
-
-本插件使用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
+This comprehensive guide covers everything you need to successfully deploy, configure, and use the Obsidian Publishing System plugin. For additional support, please refer to the project's GitHub repository or contact your system administrator.
