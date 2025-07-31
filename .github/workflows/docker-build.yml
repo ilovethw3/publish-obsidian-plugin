@@ -5,16 +5,26 @@ on:
     branches:
       - main
       - master
+    paths:
+      - 'server/**'
+      - 'shared/**'
+      - 'docker-compose*.yml'
+      - '.github/workflows/docker-build.yml'
     tags:
       - 'v*'
   pull_request:
     branches:
       - main
       - master
+    paths:
+      - 'server/**'
+      - 'shared/**'
+      - 'docker-compose*.yml'
+      - '.github/workflows/docker-build.yml'
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: obsidian-publisher-server
+  IMAGE_NAME: candy0327/obsidian-publisher-server
 
 jobs:
   build-and-push:
