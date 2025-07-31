@@ -14,7 +14,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: obsidian-publisher/server
+  IMAGE_NAME: obsidian-publisher-server
 
 jobs:
   build-and-push:

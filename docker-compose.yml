@@ -1,6 +1,6 @@
 services:
   app:
-    image: obsidian-publisher/server:${VERSION:-latest}
+    image: obsidian-publisher-server:${VERSION:-latest}
     container_name: obsidian-publisher-app
     pull_policy: always
     environment:
