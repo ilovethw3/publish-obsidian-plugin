@@ -14,8 +14,7 @@ COPY server/package*.json ./
 COPY server/tsconfig.json ./
 
 # Install all dependencies (including dev dependencies for build)
-RUN npm ci --only=production --silent && \
-    npm ci --only=development --silent && \
+RUN npm ci --silent && \
     npm cache clean --force
 
 # Copy source code
