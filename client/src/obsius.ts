@@ -1,7 +1,6 @@
 import http from "./http";
 import { TFile } from "obsidian";
-
-const baseUrl = "https://share.141029.xyz";
+import { PluginData, DEFAULT_SETTINGS } from "./types";
 
 interface CreateResponse {
 	id: string;
@@ -9,10 +8,12 @@ interface CreateResponse {
 }
 
 const obsiusWrapper = {
-	async createPost(title: string, content: string): Promise<CreateResponse> {
-		return http("POST", `${baseUrl}/`, { title, content });
+	async createPost(baseUrl: string, authToken: string | undefined, title: string, content: string): Promise<CreateResponse> {
+		return http("POST", `${baseUrl}/`, { title, content }, authToken);
 	},
 	async updatePost(
+		baseUrl: string,
+		authToken: string | undefined,
 		id: string,
 		secret: string,
 		title: string,
@@ -22,10 +23,10 @@ const obsiusWrapper = {
 			secret,
 			title,
 			content,
-		});
+		}, authToken);
 	},
-	async deletePost(id: string, secret: string): Promise<void> {
-		return http("DELETE", `${baseUrl}/${id}`, { secret });
+	async deletePost(baseUrl: string, authToken: string | undefined, id: string, secret: string): Promise<void> {
+		return http("DELETE", `${baseUrl}/${id}`, { secret }, authToken);
 	},
 };
 
@@ -34,12 +35,12 @@ export interface Post {
 	secret: string;
 }
 
-export interface Data {
-	posts: Record<string, Post>;
-}
-
 export interface ObsiusClient {
-	data(): Data;
+	data(): PluginData;
+
+	getServerUrl(): string;
+
+	getAuthToken(): string | undefined;
 
 	publishPost(file: TFile): Promise<string | null>;
 
@@ -57,14 +58,26 @@ export interface ObsiusClient {
 }
 
 export async function createClient(
-	loadData: () => Promise<Data>,
-	saveData: (data: Data) => Promise<void>
+	loadData: () => Promise<PluginData>,
+	saveData: (data: PluginData) => Promise<void>
 ): Promise<ObsiusClient> {
 	const data = await loadData();
+
+	// Ensure settings exist with defaults
+	if (!data.settings) {
+		data.settings = { ...DEFAULT_SETTINGS };
+		await saveData(data);
+	}
 
 	return {
 		data() {
 			return data;
+		},
+		getServerUrl(): string {
+			return data.settings?.serverUrl || DEFAULT_SETTINGS.serverUrl;
+		},
+		getAuthToken(): string | undefined {
+			return data.settings?.authToken;
 		},
 		async publishPost(file: TFile) {
 			if (data.posts[file.path]) {
@@ -77,16 +90,18 @@ export async function createClient(
 		async createPost(file: TFile) {
 			const title = file.basename;
 			const content = await file.vault.read(file);
+			const serverUrl = this.getServerUrl();
+			const authToken = this.getAuthToken();
 
 			try {
-				const resp = await obsiusWrapper.createPost(title, content);
+				const resp = await obsiusWrapper.createPost(serverUrl, authToken, title, content);
 				data.posts[file.path] = {
 					id: resp.id,
 					secret: resp.secret,
 				};
 				await saveData(data);
 
-				return `${baseUrl}/${resp.id}`;
+				return `${serverUrl}/${resp.id}`;
 			} catch (e) {
 				console.error(e);
 				throw new Error("Failed to create post");
@@ -98,15 +113,20 @@ export async function createClient(
 				return null;
 			}
 
-			return `${baseUrl}/${post.id}`;
+			const serverUrl = this.getServerUrl();
+			return `${serverUrl}/${post.id}`;
 		},
 		async updatePost(file: TFile) {
 			const post = data.posts[file.path];
 			const title = file.basename;
 			const content = await file.vault.read(file);
+			const serverUrl = this.getServerUrl();
+			const authToken = this.getAuthToken();
 
 			try {
 				await obsiusWrapper.updatePost(
+					serverUrl,
+					authToken,
 					post.id,
 					post.secret,
 					title,
@@ -119,9 +139,11 @@ export async function createClient(
 		},
 		async deletePost(file: TFile) {
 			const post = data.posts[file.path];
+			const serverUrl = this.getServerUrl();
+			const authToken = this.getAuthToken();
 
 			try {
-				await obsiusWrapper.deletePost(post.id, post.secret);
+				await obsiusWrapper.deletePost(serverUrl, authToken, post.id, post.secret);
 				delete data.posts[file.path];
 				await saveData(data);
 			} catch (e) {

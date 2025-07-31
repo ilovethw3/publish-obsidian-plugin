@@ -3,13 +3,17 @@ export type HTTPMethod = "GET" | "POST" | "PUT" | "DELETE";
 export default async function (
 	method: HTTPMethod,
 	url: string,
-	data: any = null
+	data: any = null,
+	authToken?: string
 ) {
 	const headers = new Headers({
 		Accept: "application/json",
 	});
 	if (data) {
 		headers.set("Content-Type", "application/json");
+	}
+	if (authToken) {
+		headers.set("Authorization", `Bearer ${authToken}`);
 	}
 
 	const resp = await fetch(url, {

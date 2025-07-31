@@ -13,7 +13,9 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(npm run build:*)",
-      "Bash(docker-compose logs:*)"
+      "Bash(docker-compose logs:*)",
+      "mcp__zen__chat",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

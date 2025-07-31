@@ -30,6 +30,7 @@ C4Container
     Person(user, "Obsidian User", "Writes and manages notes.")
     System_Boundary(obsidian, "Obsidian Desktop App") {
         Container(plugin, "Obsidian Plugin", "TypeScript", "Allows user to publish, update, and delete notes from their vault.")
+        Container(settings, "Plugin Settings", "TypeScript", "Manages server URL and authentication configuration.")
     }
 
     System_Boundary(server_system, "Web Publishing Service") {
@@ -41,6 +42,8 @@ C4Container
     Person(reader, "Web Visitor", "Views published notes in a browser.")
 
     Rel(user, plugin, "Uses")
+    Rel(user, settings, "Configures server", "UI")
+    Rel(plugin, settings, "Reads configuration")
     Rel(plugin, api, "Publishes & manages notes", "HTTPS/JSON")
 
     Rel(api, db, "Reads/Writes", "SQL")
@@ -144,7 +147,8 @@ sequenceDiagram
     participant S as API Server
     participant DB as Database
 
-    P->>S: POST /posts (title, content)
+    Note over P: Read server URL from settings
+    P->>S: POST ${serverUrl}/posts (title, content)
     S->>S: Generate public ID (nanoid)
     S->>S: Generate secret (randomUUID)
     S->>DB: INSERT INTO posts (id, secret, title, content)
@@ -161,7 +165,8 @@ sequenceDiagram
     participant C as Cache
     participant DB as Database
 
-    P->>S: PUT /posts/:id (title?, content?)<br>Header: Authorization: Bearer <secret>
+    Note over P: Read server URL from settings
+    P->>S: PUT ${serverUrl}/posts/:id (title?, content?)<br>Header: Authorization: Bearer <secret>
     S->>DB: SELECT id FROM posts WHERE id = ? AND secret = ?
     alt Post found and secret is valid
         DB-->>S: Returns post
@@ -327,7 +332,7 @@ The REST API follows standard conventions. All responses are JSON unless a speci
 
 ### 6.3. CORS (Cross-Origin Resource Sharing)
 
-The server will be configured to accept requests specifically from the Obsidian application protocol to allow the plugin to function.
+The server is configured to accept requests from the Obsidian application protocol while supporting custom server deployments.
 
 ```typescript
 // Example configuration in server/src/app.ts
@@ -338,7 +343,8 @@ const corsOptions = {
     'app://obsidian.md', // Official desktop app
     /^capacitor:\/\/localhost/, // Mobile
     /^http:\/\/localhost/, // Development
-    'https://your-domain.com' // The public domain of the service
+    'https://share.141029.xyz' // Default production server
+    // Note: Custom deployments will need to add their domain here
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -346,6 +352,15 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 ```
+
+#### 6.3.1. Dynamic CORS for Custom Deployments
+
+Since users can configure custom server URLs through the plugin settings, each server deployment must be configured with appropriate CORS origins:
+
+-   **Standard Configuration**: All servers must allow `app://obsidian.md` for the official Obsidian desktop application
+-   **Custom Domain Support**: When deploying to custom domains, administrators must update the CORS configuration to include their domain
+-   **Development Flexibility**: Localhost origins are permitted for development and testing environments
+-   **Security Boundary**: CORS configuration acts as the first line of defense, ensuring only authorized origins can access the API
 
 ## 7. Deployment Architecture
 
@@ -438,14 +453,73 @@ http {
 ```
 **Note**: `client_max_body_size 50m;` is crucial to prevent Nginx from rejecting large requests from the Obsidian plugin with a `413 Payload Too Large` error.
 
-## 8. Plugin Settings Tab
+## 8. Plugin Settings Architecture
 
-To avoid hardcoding the server URL, the Obsidian plugin will feature a settings tab.
+The Obsidian plugin implements a comprehensive settings system to support custom server deployments and authentication.
 
--   **Functionality**: Provides an input field for the user to enter their self-hosted server's base URL (e.g., `https://notes.my-domain.com`).
--   **Storage**: The URL will be saved using Obsidian's `saveData` and `loadData` plugin API methods.
--   **Default**: A default value can be provided, but the user must be able to override it.
--   **Impact**: This makes the plugin portable and usable by anyone who deploys their own instance of the server, a critical feature for a self-hosted solution.
+### 8.1. Settings Data Model
+
+The plugin uses an extended data structure to store both posts and configuration:
+
+```typescript
+interface PluginSettings {
+  serverUrl: string;          // Custom server URL
+  authToken?: string;         // Optional authentication token for private servers
+}
+
+interface PluginData {
+  posts: Record<string, Post>;
+  settings?: PluginSettings;
+}
+```
+
+### 8.2. Settings UI Design
+
+The settings tab (`ObsiusSettingTab`) provides a user-friendly interface with the following components:
+
+-   **Server URL Input**: Required field with real-time HTTPS validation and format checking
+-   **Authentication Token**: Optional field for private server deployments with proper masking
+-   **Connection Test Button**: Validates server connectivity by testing the `/health` endpoint
+-   **Reset to Default**: Restores the original production server settings
+-   **Status Indicators**: Visual feedback showing connection status and configuration validity
+
+### 8.3. Configuration Flow
+
+The settings management follows this lifecycle:
+
+1. **First Installation**: Plugin defaults to the production server URL (`https://share.141029.xyz`)
+2. **Settings Persistence**: All configuration is stored using Obsidian's `saveData`/`loadData` API in the plugin's `data.json`
+3. **Dynamic Resolution**: Server URL is resolved dynamically for every API call, removing hardcoded dependencies
+4. **Backward Compatibility**: Existing published posts continue to work seamlessly when server settings change
+
+### 8.4. URL Validation Rules
+
+The settings system enforces strict validation to ensure security and functionality:
+
+-   **Protocol Enforcement**: Must use HTTPS protocol (except `localhost` and `127.0.0.1` for development)
+-   **Format Validation**: Standard URL format validation with proper scheme, host, and optional port
+-   **Connection Testing**: Live validation against the server's `/health` endpoint before saving
+-   **Security Prevention**: Blocks malformed URLs, JavaScript URIs, and other dangerous inputs
+
+### 8.5. Configuration Management Best Practices
+
+#### Security Considerations
+
+-   **Secure Storage**: Server URLs and authentication tokens are stored securely in the plugin's private data
+-   **HTTPS Enforcement**: Production deployments must use valid SSL certificates
+-   **Token Protection**: Authentication tokens are masked in the UI and never logged
+
+#### Development Support
+
+-   **Local Development**: `localhost` and `127.0.0.1` URLs are permitted for development testing
+-   **Status Feedback**: Real-time UI feedback shows current configuration and connection status
+-   **Easy Switching**: Developers can quickly switch between local and production server instances
+
+#### Migration and Backup
+
+-   **Seamless Upgrades**: Existing installations automatically inherit the default server URL
+-   **Data Preservation**: All published posts remain accessible when changing server configurations
+-   **Settings Export**: Configuration can be exported for backup or sharing across installations
 
 ## 9. Caching Strategy
 

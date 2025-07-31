@@ -3,25 +3,86 @@ import type { ObsiusClient } from "./src/obsius";
 import { createClient } from "./src/obsius";
 import { getText } from "./src/text";
 import { PublishedPostsModal } from "./src/modals";
+import { ObsiusSettingTab } from "./src/settings";
+import { PluginData, DEFAULT_SETTINGS, isValidUrl } from "./src/types";
+import { migratePluginData, validatePluginData } from "./src/migration";
 
 export default class ObsiusPlugin extends Plugin {
 	obsiusClient: ObsiusClient;
 
 	async onload() {
 		this.obsiusClient = await createClient(
-			async () => ({
-				posts: {},
-				...(await this.loadData()),
-			}),
+			async () => {
+				const loadedData = await this.loadData();
+				const migratedData = migratePluginData(loadedData);
+				
+				// Validate the migrated data
+				if (!validatePluginData(migratedData)) {
+					console.error('Invalid plugin data detected, resetting to defaults');
+					new Notice('Plugin data was corrupted and has been reset to defaults');
+					return {
+						posts: {},
+						settings: { ...DEFAULT_SETTINGS }
+					} as PluginData;
+				}
+				
+				// Save migrated data back if it was changed
+				if (JSON.stringify(loadedData) !== JSON.stringify(migratedData)) {
+					await this.saveData(migratedData);
+					console.log('Plugin data migrated to new format');
+				}
+				
+				return migratedData;
+			},
 			async (data) => await this.saveData(data)
 		);
 
 		this.addObsiusCommands();
 		this.registerFileMenuEvent();
 		this.registerVaultEvents();
+		
+		// Add settings tab
+		this.addSettingTab(new ObsiusSettingTab(this.app, this));
 	}
 
 	onunload() {}
+
+	// Settings management methods
+	getServerUrl(): string {
+		return this.obsiusClient.getServerUrl();
+	}
+
+	getAuthToken(): string | undefined {
+		return this.obsiusClient.getAuthToken();
+	}
+
+	async updateServerUrl(newUrl: string): Promise<void> {
+		if (!isValidUrl(newUrl)) {
+			throw new Error("Invalid URL format");
+		}
+
+		const data = this.obsiusClient.data();
+		if (!data.settings) {
+			data.settings = { ...DEFAULT_SETTINGS };
+		}
+		data.settings.serverUrl = newUrl;
+		await this.saveData(data);
+	}
+
+	async updateAuthToken(newToken: string | undefined): Promise<void> {
+		const data = this.obsiusClient.data();
+		if (!data.settings) {
+			data.settings = { ...DEFAULT_SETTINGS };
+		}
+		data.settings.authToken = newToken;
+		await this.saveData(data);
+	}
+
+	async resetToDefaultSettings(): Promise<void> {
+		const data = this.obsiusClient.data();
+		data.settings = { ...DEFAULT_SETTINGS };
+		await this.saveData(data);
+	}
 
 	addObsiusCommands() {
 		this.addCommand({

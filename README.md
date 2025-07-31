@@ -66,7 +66,10 @@ You can install the server via Docker (recommended) or manually.
 
 ### Method 1: Docker (Recommended)
 
-This is the simplest and most reliable method for production.
+The system supports multiple deployment methods:
+
+#### Smart Deployment (Recommended)
+This method tries pre-built images first, falls back to building from source:
 
 1. Ensure Docker and Docker Compose are installed.
 2. Clone the repository.
@@ -86,6 +89,20 @@ This is the simplest and most reliable method for production.
    ```bash
    ./deploy.sh
    ```
+
+#### Production Deployment (Pre-built Images)
+For production, use pre-built images from the registry:
+
+```bash
+./deploy.sh deploy-prod
+```
+
+#### Development Deployment (Build from Source)
+For development or when you need to modify the server code:
+
+```bash
+./deploy.sh deploy-dev
+```
 
 ### Method 2: Manual Installation
 
@@ -259,6 +276,39 @@ For production deployment, see the comprehensive [DEPLOYMENT.md](DEPLOYMENT.md) 
 - Security considerations and best practices
 - Monitoring and troubleshooting
 
+### Deployment Commands
+
+The `deploy.sh` script supports multiple deployment modes:
+
+```bash
+# Smart deployment (tries pre-built, falls back to source)
+./deploy.sh deploy
+
+# Production deployment (uses pre-built images)
+./deploy.sh deploy-prod
+
+# Development deployment (builds from source)
+./deploy.sh deploy-dev
+
+# Upgrade to specific version
+VERSION=v1.2.3 ./deploy.sh upgrade
+
+# Pull latest Docker image
+./deploy.sh pull
+
+# View deployment status
+./deploy.sh status
+
+# View logs
+./deploy.sh logs
+
+# Backup database
+./deploy.sh backup
+
+# Rollback to backup
+./deploy.sh rollback ./backups/backup-20250131-120000.tar.gz
+```
+
 ### Quick Production Deployment
 
 ```bash
@@ -273,8 +323,8 @@ mkdir -p ./server/database
 touch ./server/database/posts.db
 sudo chown -R 1001:1001 ./server/database
 
-# Deploy with SSL
-./deploy.sh
+# Deploy with pre-built image
+./deploy.sh deploy-prod
 ```
 
 ## Contributing

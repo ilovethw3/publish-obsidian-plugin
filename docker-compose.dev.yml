@@ -1,0 +1,60 @@
+# Development docker-compose file - builds from source
+# Usage: docker-compose -f docker-compose.dev.yml up
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./server/Dockerfile
+      target: production
+    container_name: obsidian-publisher-app-dev
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DB_PATH=/app/data/posts.db
+      - CORS_ORIGIN=https://localhost:3000,http://localhost:3000
+    volumes:
+      - app_data:/app/data
+      - app_logs:/app/logs
+      # Mount source code for development (optional)
+      - ./server/src:/app/src:ro
+    networks:
+      - app_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').request({hostname:'localhost',port:3000,path:'/health',timeout:1000}).on('response',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1)).end()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+    container_name: obsidian-publisher-nginx-dev
+    ports:
+      - "8080:80"  # Use different port for development
+    volumes:
+      - ./server/nginx/nginx-dev.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+    networks:
+      - app_network
+    restart: unless-stopped
+
+volumes:
+  app_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./server/database
+  app_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./server/logs
+
+networks:
+  app_network:
+    driver: bridge

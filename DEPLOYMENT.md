@@ -59,6 +59,7 @@ This section is for experienced users familiar with Docker-based deployments.
    LETSENCRYPT_EMAIL=your-email@example.com
    CORS_ORIGIN=https://your-notes.com
    NODE_ENV=production
+   VERSION=latest  # Optional: specify Docker image version
    ```
 
 3. **Initialize Database & Deploy**
@@ -69,8 +70,11 @@ This section is for experienced users familiar with Docker-based deployments.
    touch ./server/database/posts.db
    sudo chown -R 1001:1001 ./server/database
 
-   # Deploy the system
-   ./deploy.sh
+   # Deploy with pre-built images (recommended for production)
+   ./deploy.sh deploy-prod
+   
+   # Or use smart deployment (tries pre-built, falls back to source)
+   ./deploy.sh deploy
    ```
 
 Your system should now be live at `https://your-notes.com`.
@@ -213,6 +217,54 @@ All services are connected to a shared Docker bridge network, allowing them to c
 * `LETSENCRYPT_EMAIL`: Used by Certbot for registration and renewal notices.
 * `CORS_ORIGIN`: Used by the `app` service to set the `Access-Control-Allow-Origin` header.
 * `NODE_ENV`: Sets the application environment (production/development).
+
+### Deployment Strategies
+
+The system supports three deployment strategies:
+
+#### 1. Smart Deployment (Default)
+```bash
+./deploy.sh deploy
+```
+- First attempts to pull pre-built Docker images from the registry
+- Falls back to building from source if images are unavailable
+- Ideal for automated deployments and CI/CD pipelines
+
+#### 2. Production Deployment (Pre-built Images)
+```bash
+./deploy.sh deploy-prod
+```
+- Uses pre-compiled Docker images from the registry
+- Faster deployment with guaranteed image consistency
+- Recommended for production environments
+- Requires internet connection to pull images
+
+#### 3. Development Deployment (Build from Source)
+```bash
+./deploy.sh deploy-dev
+```
+- Builds Docker images locally from source code
+- Useful for custom modifications or air-gapped environments
+- Takes longer due to compilation step
+- Uses different port (8080) to avoid conflicts
+
+#### Image Management Commands
+```bash
+# Pull latest image without deploying
+./deploy.sh pull
+
+# Upgrade to specific version
+VERSION=v1.2.3 ./deploy.sh upgrade
+
+# View current deployment status
+./deploy.sh status
+
+# Create database backup
+./deploy.sh backup
+
+# Rollback to previous backup
+./deploy.sh rollback ./backups/backup-20250131-120000.tar.gz
+```
 
 ---
 

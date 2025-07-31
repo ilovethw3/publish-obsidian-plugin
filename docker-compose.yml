@@ -1,9 +1,8 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: ./server/Dockerfile
+    image: obsidian-publisher/server:${VERSION:-latest}
     container_name: obsidian-publisher-app
+    pull_policy: always
     environment:
       - NODE_ENV=production
       - PORT=3000

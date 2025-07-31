@@ -1,0 +1,46 @@
+# Docker Compose override file for local development
+# This file is automatically loaded by docker-compose
+# Used when running: docker-compose up (without -f flag)
+
+services:
+  app:
+    # Override image with local build for development
+    build:
+      context: .
+      dockerfile: ./server/Dockerfile
+      target: production
+    # Remove image directive to use build instead
+    image: null
+    
+    # Development environment variables
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DB_PATH=/app/data/posts.db
+      - CORS_ORIGIN=http://localhost:3000,https://localhost:3000
+      - DEBUG=obsidian-publisher:*
+    
+    # Mount volumes for development
+    volumes:
+      - app_data:/app/data
+      - app_logs:/app/logs
+      # Optional: mount for hot reload (if you setup nodemon in container)
+      # - ./server/src:/app/src:ro
+    
+    # Override healthcheck for faster feedback in development
+    healthcheck:
+      interval: 15s
+      timeout: 5s
+      retries: 2
+      start_period: 10s
+
+  nginx:
+    # Use development port to avoid conflicts
+    ports:
+      - "8080:80"
+    volumes:
+      - ./server/nginx/nginx-dev.conf:/etc/nginx/nginx.conf:ro
+
+# Note: This file allows developers to run `docker-compose up` 
+# and automatically get a development build instead of pulling 
+# the production image from the registry.

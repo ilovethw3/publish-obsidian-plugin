@@ -12,6 +12,8 @@ NC='\033[0m' # No Color
 DOMAIN=${DOMAIN:-"share.141029.xyz"}
 SSL_EMAIL=${SSL_EMAIL:-"admin@share.141029.xyz"}
 BACKUP_DIR="./backups"
+VERSION=${VERSION:-"latest"}
+DOCKER_IMAGE="obsidian-publisher/server"
 
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -114,9 +116,26 @@ setup_ssl() {
     fi
 }
 
+# Function to pull Docker image
+pull_image() {
+    log_info "Pulling Docker image: $DOCKER_IMAGE:$VERSION"
+    
+    if docker pull "$DOCKER_IMAGE:$VERSION"; then
+        log_success "Successfully pulled image: $DOCKER_IMAGE:$VERSION"
+        return 0
+    else
+        log_error "Failed to pull image: $DOCKER_IMAGE:$VERSION"
+        log_warning "Will attempt to build from source instead..."
+        return 1
+    fi
+}
+
 # Function to deploy the application
 deploy_app() {
     log_info "🚀 Starting deployment of Obsidian Publishing System..."
+    
+    # Export environment variables for docker-compose
+    export VERSION DOMAIN SSL_EMAIL
     
     # Pull latest changes
     if [ -d ".git" ]; then
@@ -136,10 +155,15 @@ deploy_app() {
     log_info "Stopping existing containers..."
     docker_compose down --remove-orphans || true
     
-    # Build and start new containers
-    log_info "Building and starting containers..."
-    docker_compose build --no-cache app
-    docker_compose up -d
+    # Try to pull pre-built image, fallback to building from source
+    if ! pull_image; then
+        log_info "Building from source..."
+        docker_compose -f docker-compose.dev.yml build --no-cache app
+        docker_compose -f docker-compose.dev.yml up -d
+    else
+        log_info "Starting containers with pre-built image..."
+        docker_compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+    fi
     
     # Wait for services to be healthy
     log_info "Waiting for services to be healthy..."
@@ -294,6 +318,51 @@ case "${1:-deploy}" in
     "deploy")
         main
         ;;
+    "deploy-dev")
+        check_dependencies
+        create_backup
+        log_info "Starting development deployment (building from source)..."
+        export VERSION DOMAIN SSL_EMAIL
+        docker_compose down --remove-orphans || true
+        docker_compose -f docker-compose.dev.yml up -d --build
+        show_status
+        ;;
+    "deploy-prod")
+        check_dependencies
+        create_backup
+        log_info "Starting production deployment (using pre-built image)..."
+        export VERSION DOMAIN SSL_EMAIL
+        docker_compose down --remove-orphans || true
+        pull_image || exit 1
+        docker_compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+        show_status
+        ;;
+    "pull")
+        pull_image
+        ;;
+    "upgrade")
+        VERSION="${2:-latest}"
+        log_info "Upgrading to version: $VERSION"
+        create_backup
+        export VERSION DOMAIN SSL_EMAIL
+        docker_compose down
+        pull_image || exit 1
+        docker_compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+        show_status
+        ;;
+    "rollback")
+        BACKUP_FILE="${2:-}"
+        if [ -z "$BACKUP_FILE" ] || [ ! -f "$BACKUP_FILE" ]; then
+            log_error "Please specify a valid backup file"
+            echo "Available backups:"
+            ls -la "$BACKUP_DIR"/backup-*.tar.gz 2>/dev/null || echo "No backups found"
+            exit 1
+        fi
+        log_info "Rolling back to backup: $BACKUP_FILE"
+        docker_compose down
+        tar -xzf "$BACKUP_FILE" -C ./
+        docker_compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+        ;;
     "ssl-setup")
         check_dependencies
         setup_ssl
@@ -318,18 +387,33 @@ case "${1:-deploy}" in
         docker_compose down
         ;;
     "help"|"-h"|"--help")
-        echo "Usage: $0 [command]"
+        echo "Usage: $0 [command] [options]"
         echo ""
         echo "Commands:"
-        echo "  deploy     - Full deployment (default)"
-        echo "  ssl-setup  - Setup SSL certificates only"
-        echo "  ssl-renew  - Renew SSL certificates"
-        echo "  backup     - Create backup only"
-        echo "  status     - Show deployment status"
-        echo "  logs       - Show application logs"
-        echo "  restart    - Restart services"
-        echo "  stop       - Stop all services"
-        echo "  help       - Show this help message"
+        echo "  deploy         - Smart deployment (tries pre-built, falls back to source)"
+        echo "  deploy-dev     - Development deployment (builds from source)"
+        echo "  deploy-prod    - Production deployment (uses pre-built image)"
+        echo "  pull           - Pull latest Docker image"
+        echo "  upgrade [ver]  - Upgrade to specific version (default: latest)"
+        echo "  rollback <file>- Rollback to a backup file"
+        echo "  ssl-setup      - Setup SSL certificates only"
+        echo "  ssl-renew      - Renew SSL certificates"
+        echo "  backup         - Create backup only"
+        echo "  status         - Show deployment status"
+        echo "  logs [service] - Show application logs"
+        echo "  restart [svc]  - Restart services"
+        echo "  stop           - Stop all services"
+        echo "  help           - Show this help message"
+        echo ""
+        echo "Environment Variables:"
+        echo "  VERSION        - Docker image version (default: latest)"
+        echo "  DOMAIN         - Your domain name (default: share.141029.xyz)"
+        echo "  SSL_EMAIL      - Email for SSL certificates"
+        echo ""
+        echo "Examples:"
+        echo "  $0 deploy-prod                    # Deploy using pre-built image"
+        echo "  VERSION=v1.2.3 $0 upgrade        # Upgrade to specific version"
+        echo "  $0 rollback ./backups/backup-*.tar.gz  # Rollback to backup"
         ;;
     *)
         log_error "Unknown command: $1"
