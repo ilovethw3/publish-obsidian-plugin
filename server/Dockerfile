@@ -14,7 +14,7 @@ COPY server/package*.json ./
 COPY server/tsconfig.json ./
 
 # Install all dependencies (including dev dependencies for build)
-RUN npm ci --silent && \
+RUN npm install --silent && \
     npm cache clean --force
 
 # Copy source code
@@ -62,7 +62,7 @@ RUN addgroup -g 1001 -S nodejs && \
 COPY server/package*.json ./
 
 # Install only production dependencies
-RUN npm ci --only=production --silent && \
+RUN npm install --only=production --silent && \
     npm cache clean --force
 
 # Copy built application from builder stage
