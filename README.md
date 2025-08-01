@@ -178,6 +178,15 @@ Use any of the publishing methods on an already-published note. The plugin autom
 ### Viewing All Published Posts
 - **Command Palette**: Search for "View published posts" to see a modal with all your published notes
 
+## 📚 Documentation
+
+For comprehensive documentation, see the [docs/](./docs/) directory:
+
+- **[System Architecture](./docs/architecture.md)** - Detailed system design and components
+- **[Client API](./docs/client-api.md)** - Obsidian plugin API and functionality
+- **[Server API](./docs/server-api.md)** - RESTful API endpoints and specifications  
+- **[Deployment Guide](./docs/deployment.md)** - Docker, environment variables, and CI/CD
+
 ## API Documentation
 
 The server exposes a simple RESTful API. Most endpoints use Bearer token authentication.
@@ -373,4 +382,8 @@ Built with these incredible open-source technologies:
 
 ---
 
-**Need help?** Check out the [CLIENT_DEPLOYMENT.md](CLIENT_DEPLOYMENT.md) for detailed plugin installation instructions, or [DEPLOYMENT.md](DEPLOYMENT.md) for server deployment guidance.
+**Need help?** 
+- 📖 [Complete Documentation](./docs/) - Comprehensive guides and API references
+- 🚀 [Deployment Guide](./docs/deployment.md) - Server deployment with Docker
+- 🔌 [Client API](./docs/client-api.md) - Plugin installation and usage
+- 🏗️ [Architecture](./docs/architecture.md) - System design and components
