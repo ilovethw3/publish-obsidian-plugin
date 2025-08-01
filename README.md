@@ -39,9 +39,16 @@ The fastest way to get the server running is with Docker.
    ```
 4. Run the server using Docker Compose:
    ```bash
-   ./deploy.sh
+   ./deploy.sh deploy
    ```
-5. Install the Obsidian plugin from the latest release in your vault.
+5. Install the Obsidian plugin:
+   ```bash
+   # Auto-install (recommended)
+   ./install-client.sh
+   
+   # Or manual install from GitHub releases
+   # Download from: https://github.com/ilovethw3/publish-obsidian-plugin/releases
+   ```
 6. Configure the plugin with your server URL in the plugin settings.
 
 ## Architecture Overview

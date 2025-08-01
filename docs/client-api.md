@@ -576,6 +576,114 @@ async deleteCurrentNote(): Promise<void> {
 }
 ```
 
+## 🚀 插件安装和部署
+
+### 方式一：从GitHub Release安装（推荐）
+
+1. **下载最新Release**
+   - 访问 [GitHub Releases](https://github.com/ilovethw3/publish-obsidian-plugin/releases)
+   - 下载最新版本的 `obsidian-publishing-system.zip`
+
+2. **安装到Obsidian**
+   ```bash
+   # 解压到Obsidian插件目录
+   unzip obsidian-publishing-system.zip -d ~/.config/obsidian/plugins/obsidian-publishing-system/
+   
+   # 或者手动创建目录并复制文件
+   mkdir -p ~/.config/obsidian/plugins/obsidian-publishing-system/
+   cp main.js manifest.json styles.css ~/.config/obsidian/plugins/obsidian-publishing-system/
+   ```
+
+3. **启用插件**
+   - 重启Obsidian
+   - 进入 设置 → 第三方插件
+   - 找到 "Obsidian Publishing System" 并启用
+   - 配置服务器URL等设置
+
+### 方式二：手动安装
+
+1. **创建插件目录**
+   ```bash
+   # Linux/Mac
+   mkdir -p ~/.config/obsidian/plugins/obsidian-publishing-system/
+   
+   # Windows
+   mkdir "%APPDATA%\obsidian\plugins\obsidian-publishing-system"
+   ```
+
+2. **复制必需文件**
+   ```bash
+   # 从项目根目录复制构建文件
+   cp main.js manifest.json styles.css ~/.config/obsidian/plugins/obsidian-publishing-system/
+   ```
+
+3. **重启Obsidian并启用插件**
+
+### 方式三：开发者模式安装
+
+如果你想从源码构建和安装：
+
+1. **克隆仓库**
+   ```bash
+   git clone https://github.com/ilovethw3/publish-obsidian-plugin.git
+   cd publish-obsidian-plugin
+   ```
+
+2. **构建客户端**
+   ```bash
+   cd client
+   npm install
+   npm run build
+   ```
+
+3. **创建软链接（推荐开发用）**
+   ```bash
+   # 创建软链接到Obsidian插件目录
+   ln -sf "$(pwd)" ~/.config/obsidian/plugins/obsidian-publishing-system
+   ```
+
+   或者复制文件：
+   ```bash
+   # 复制构建文件到插件目录
+   mkdir -p ~/.config/obsidian/plugins/obsidian-publishing-system/
+   cp ../main.js ../manifest.json ../styles.css ~/.config/obsidian/plugins/obsidian-publishing-system/
+   ```
+
+### 插件配置
+
+安装完成后，需要配置插件：
+
+1. **基本设置**
+   - 打开 Obsidian 设置
+   - 进入 插件选项 → Obsidian Publishing System
+   - 配置以下选项：
+
+   ```
+   服务器URL: https://your-domain.com
+   认证令牌: (可选，私有部署时使用)
+   ```
+
+2. **测试连接**
+   - 点击 "测试连接" 按钮
+   - 确保能够成功连接到服务器
+
+3. **验证安装**
+   - 打开命令面板 (Ctrl/Cmd + P)
+   - 搜索 "Publish current note"
+   - 如果能看到相关命令，说明安装成功
+
+### 插件文件结构
+
+安装完成后，插件目录应包含：
+
+```
+~/.config/obsidian/plugins/obsidian-publishing-system/
+├── main.js          # 插件主代码（必需）
+├── manifest.json    # 插件元数据（必需）
+├── styles.css       # 插件样式（必需）
+└── data.json        # 插件数据（自动生成）
+```
+
 ## 🛠️ 开发和构建
 
 ### 开发环境设置
@@ -617,16 +725,18 @@ esbuild.build({
 }).catch(() => process.exit(1));
 ```
 
-### 插件安装
-
-开发期间的插件安装：
+### 开发调试
 
 ```bash
-# 创建软链接到 Obsidian 插件目录
-ln -s /path/to/project/client ~/.config/obsidian/plugins/obsidian-publishing-system
+# 开发时的实时构建
+cd client
+npm run dev
 
-# 或者复制构建文件
-cp main.js manifest.json styles.css ~/.config/obsidian/plugins/obsidian-publishing-system/
+# 查看构建输出
+ls -la ../main.js ../manifest.json ../styles.css
+
+# 重新加载Obsidian插件
+# 在Obsidian中：设置 → 第三方插件 → 刷新 → 重新启用插件
 ```
 
 ## 🔒 安全考虑

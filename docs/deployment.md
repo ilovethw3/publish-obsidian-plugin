@@ -37,12 +37,20 @@ graph TB
 
 ## 🚀 快速部署
 
-### 前置要求
+本指南分为两部分：**服务器端部署**和**客户端安装**。
+
+### 服务器端前置要求
 
 - **服务器**: 最小 1GB RAM, 10GB 存储空间
 - **域名**: 已配置指向服务器的域名
 - **软件**: Docker 和 Docker Compose
 - **端口**: 80, 443 端口可用
+
+### 客户端前置要求
+
+- **Obsidian**: 版本 0.15.0 或更高
+- **操作系统**: Windows, macOS, 或 Linux
+- **网络**: 能够访问已部署的服务器
 
 ### 一键部署脚本
 
@@ -980,6 +988,190 @@ else
 fi
 
 echo "紧急恢复完成"
+```
+
+## 🔌 客户端部署指南
+
+### Obsidian 插件安装
+
+完成服务器部署后，需要安装 Obsidian 插件来使用发布功能。
+
+#### 方式一：从 GitHub Release 安装（推荐）
+
+1. **下载插件文件**
+   ```bash
+   # 访问 GitHub Release 页面
+   # https://github.com/ilovethw3/publish-obsidian-plugin/releases
+   
+   # 下载最新版本的插件包
+   wget https://github.com/ilovethw3/publish-obsidian-plugin/releases/latest/download/obsidian-publishing-system.zip
+   ```
+
+2. **安装到 Obsidian**
+   ```bash
+   # 创建插件目录
+   mkdir -p ~/.config/obsidian/plugins/obsidian-publishing-system/
+   
+   # 解压插件文件
+   unzip obsidian-publishing-system.zip -d ~/.config/obsidian/plugins/obsidian-publishing-system/
+   ```
+
+3. **启用插件**
+   - 重启 Obsidian
+   - 进入 设置 → 第三方插件 → 已安装插件
+   - 找到 "Obsidian Publishing System" 并启用
+
+#### 方式二：手动构建安装
+
+1. **构建插件**
+   ```bash
+   # 克隆仓库
+   git clone https://github.com/ilovethw3/publish-obsidian-plugin.git
+   cd publish-obsidian-plugin
+   
+   # 构建客户端
+   cd client
+   npm install
+   npm run build
+   ```
+
+2. **复制到插件目录**
+   ```bash
+   # 创建插件目录
+   mkdir -p ~/.config/obsidian/plugins/obsidian-publishing-system/
+   
+   # 复制构建文件
+   cp ../main.js ../manifest.json ../styles.css ~/.config/obsidian/plugins/obsidian-publishing-system/
+   ```
+
+#### 方式三：开发者模式
+
+对于开发者，可以直接链接项目目录：
+
+```bash
+# 构建后创建软链接
+cd publish-obsidian-plugin
+ln -sf "$(pwd)" ~/.config/obsidian/plugins/obsidian-publishing-system
+```
+
+### 客户端配置
+
+1. **基本配置**
+   - 打开 Obsidian 设置
+   - 进入 插件选项 → Obsidian Publishing System
+   - 配置服务器 URL: `https://your-domain.com`
+
+2. **测试连接**
+   ```bash
+   # 可以先测试服务器是否正常运行
+   curl -f https://your-domain.com/health
+   ```
+
+3. **验证配置**
+   - 在插件设置中点击 "测试连接"
+   - 确保显示连接成功
+
+### 多平台安装路径
+
+不同操作系统的 Obsidian 插件目录：
+
+```bash
+# Linux
+~/.config/obsidian/plugins/obsidian-publishing-system/
+
+# macOS  
+~/Library/Application Support/obsidian/plugins/obsidian-publishing-system/
+
+# Windows
+%APPDATA%\obsidian\plugins\obsidian-publishing-system\
+```
+
+### 自动化安装脚本
+
+创建自动安装脚本 `install-client.sh`：
+
+```bash
+#!/bin/bash
+# install-client.sh - 客户端自动安装脚本
+
+set -e
+
+PLUGIN_NAME="obsidian-publishing-system"
+GITHUB_REPO="ilovethw3/publish-obsidian-plugin"
+
+# 检测操作系统
+detect_os() {
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        OBSIDIAN_DIR="$HOME/.config/obsidian"
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        OBSIDIAN_DIR="$HOME/Library/Application Support/obsidian"
+    elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+        OBSIDIAN_DIR="$APPDATA/obsidian"
+    else
+        echo "❌ 不支持的操作系统: $OSTYPE"
+        exit 1
+    fi
+}
+
+# 下载并安装插件
+install_plugin() {
+    local plugin_dir="$OBSIDIAN_DIR/plugins/$PLUGIN_NAME"
+    
+    echo "📁 创建插件目录: $plugin_dir"
+    mkdir -p "$plugin_dir"
+    
+    echo "📥 下载插件文件..."
+    # 这里可以从 GitHub Release 下载预构建的文件
+    # 或者从项目构建
+    
+    if [ -d "client" ]; then
+        echo "🔨 本地构建模式"
+        cd client
+        npm install
+        npm run build
+        cd ..
+        
+        cp main.js manifest.json styles.css "$plugin_dir/"
+    else
+        echo "📦 下载 Release 模式"
+        # 实际部署时从 GitHub Release 下载
+        echo "请手动下载 Release 文件"
+    fi
+    
+    echo "✅ 插件安装完成: $plugin_dir"
+}
+
+# 验证安装
+verify_installation() {
+    local plugin_dir="$OBSIDIAN_DIR/plugins/$PLUGIN_NAME"
+    
+    if [ -f "$plugin_dir/main.js" ] && [ -f "$plugin_dir/manifest.json" ]; then
+        echo "✅ 验证成功：插件文件完整"
+        echo "📝 请重启 Obsidian 并在设置中启用插件"
+    else
+        echo "❌ 验证失败：插件文件不完整"
+        exit 1
+    fi
+}
+
+# 主函数
+main() {
+    echo "🚀 开始安装 Obsidian Publishing System 插件..."
+    
+    detect_os
+    install_plugin
+    verify_installation
+    
+    echo "🎉 安装完成！"
+    echo ""
+    echo "后续步骤："
+    echo "1. 重启 Obsidian"
+    echo "2. 进入 设置 → 第三方插件"
+    echo "3. 启用 'Obsidian Publishing System'"  
+    echo "4. 配置服务器 URL"
+}
+
+main "$@"
 ```
 
 ## 📈 扩展和优化
