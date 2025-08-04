@@ -64,7 +64,7 @@ jobs:
         if: github.ref_type == 'branch'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.plugin-info.outputs.id }}-${{ github.sha }}
+          name: ${{ steps.plugin-info.outputs.id }}-dev-${{ github.run_number }}
           path: dist/${{ steps.plugin-info.outputs.id }}.zip
           retention-days: 90
 
