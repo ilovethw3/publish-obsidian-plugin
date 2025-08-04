@@ -1,8 +1,9 @@
 name: Build Obsidian Plugin
 
 on:
-  # 开发构建：推送到主分支且修改了客户端相关文件
+  # 开发构建和正式发布触发器
   push:
+    # 开发构建：推送到主分支且修改了客户端相关文件
     branches:
       - master
       - main
@@ -10,9 +11,7 @@ on:
       - 'client/**'
       - 'shared/**'
       - '.github/workflows/client-build.yml'
-  
-  # 正式发布：推送版本标签
-  push:
+    # 正式发布：推送版本标签
     tags:
       - 'v*'
 
