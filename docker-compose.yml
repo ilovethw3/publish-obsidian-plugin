@@ -4,10 +4,12 @@ services:
     container_name: obsidian-publisher-app
     pull_policy: always
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - DB_PATH=/app/data/posts.db
-      - CORS_ORIGIN=https://share.141029.xyz
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-3000}
+      - DB_PATH=${DB_PATH:-/app/data/posts.db}
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://share.141029.xyz}
+      - API_TOKEN=${API_TOKEN}
+      - API_TOKEN_DESCRIPTION=${API_TOKEN_DESCRIPTION:-Production API access for Obsidian Publishing}
     volumes:
       - app_data:/app/data
       - app_logs:/app/logs

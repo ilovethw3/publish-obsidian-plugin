@@ -5,6 +5,7 @@ import { IDGenerator } from '../utils/idGenerator';
 import { MarkdownRenderer } from '../utils/markdown';
 import { createError } from '../middleware/errorHandler';
 import { logger } from '../middleware/logger';
+import { requireApiToken } from '../middleware/auth';
 import { 
   CreatePostRequest, 
   CreatePostResponse, 
@@ -73,6 +74,7 @@ const handleValidationErrors = (req: express.Request, res: express.Response, nex
  * POST / - Create a new post
  */
 router.post('/', 
+  requireApiToken,
   createPostValidation,
   handleValidationErrors,
   async (req: express.Request<{}, CreatePostResponse, CreatePostRequest>, res: express.Response<CreatePostResponse>, next: express.NextFunction) => {
@@ -158,6 +160,7 @@ router.get('/:id',
  * PUT /:id - Update an existing post
  */
 router.put('/:id',
+  requireApiToken,
   updatePostValidation,
   handleValidationErrors,
   async (req: express.Request<{ id: string }, {}, UpdatePostRequest>, res: express.Response, next: express.NextFunction) => {
@@ -200,6 +203,7 @@ router.put('/:id',
  * DELETE /:id - Delete a post
  */
 router.delete('/:id',
+  requireApiToken,
   deletePostValidation,
   handleValidationErrors,
   async (req: express.Request<{ id: string }, {}, DeletePostRequest>, res: express.Response, next: express.NextFunction) => {

@@ -265,38 +265,130 @@ The REST API follows standard conventions. All responses are JSON unless a speci
 
 ### 5.1. Authentication
 
--   **Method**: Bearer Token Authentication.
--   **Header**: `Authorization: Bearer <secret>`
--   **Rationale**: This method is simple, stateless, and well-suited for a machine-to-machine API like the one used by the Obsidian plugin. The secret is passed in a standard header, keeping it out of URLs and request bodies. It is required for all state-changing operations (`PUT`, `DELETE`).
+The API implements a two-tier authentication system for comprehensive security:
+
+#### 5.1.1. API Token Authentication (Global)
+
+-   **Method**: Bearer Token Authentication for API access control
+-   **Header**: `Authorization: Bearer <api_token>`
+-   **Configuration**: Server-side environment variable `API_TOKEN`
+-   **Scope**: Required for **all API operations** (`POST`, `PUT`, `DELETE`)
+-   **Purpose**: Controls who can access the publishing service entirely
+-   **Implementation**: Middleware validates the token before processing any request
+
+#### 5.1.2. Post Secret Authentication (Post-specific)
+
+-   **Method**: UUID-based secret for post-specific operations
+-   **Header**: `Authorization: Bearer <post_secret>` (for update/delete operations)
+-   **Source**: Generated during post creation and returned to client
+-   **Scope**: Required for modifying specific posts (`PUT`, `DELETE`)
+-   **Purpose**: Ensures only the original author can modify their posts
+
+#### 5.1.3. Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant M as Auth Middleware
+    participant A as API Handler
+    participant DB as Database
+
+    Note over C: User configures API_TOKEN in plugin
+    C->>M: Request with Authorization: Bearer <API_TOKEN>
+    
+    alt API Token Valid
+        M->>A: Forward request
+        
+        alt Operation requires post secret
+            A->>DB: Validate post_secret against database
+            alt Post secret valid
+                A->>DB: Execute operation
+                DB-->>A: Success
+                A-->>C: 200 OK
+            else Post secret invalid
+                A-->>C: 401 Unauthorized (Invalid post secret)
+            end
+        else Operation is create/read only
+            A->>DB: Execute operation
+            DB-->>A: Success
+            A-->>C: 200 OK / 201 Created
+        end
+    else API Token Invalid
+        M-->>C: 401 Unauthorized (Invalid API token)
+    end
+```
+
+#### 5.1.4. Token Configuration
+
+**Server Configuration** (Environment Variables):
+```bash
+# Required: Global API access token
+API_TOKEN=your-very-secure-api-token-here
+
+# Optional: Token description for documentation
+API_TOKEN_DESCRIPTION="Production API access for Obsidian Publishing"
+```
+
+**Client Configuration**:
+- Users configure the same `API_TOKEN` in the Obsidian plugin settings
+- Token is sent with every API request via Authorization header
+- Token is stored securely in plugin's data.json file
+
+#### 5.1.5. Security Benefits
+
+-   **Defense in Depth**: Two-layer authentication prevents unauthorized access
+-   **Access Control**: API token controls who can use the service
+-   **Post Ownership**: Post secrets ensure content ownership integrity
+-   **Stateless Design**: No server-side session management required
+-   **Standard Compliance**: Uses RFC 6750 Bearer Token specification
 
 ### 5.2. Endpoints
 
 #### `POST /posts`
 
 -   **Description**: Creates a new post.
+-   **Authentication**: **Required**. `Authorization: Bearer <API_TOKEN>`
 -   **Request Body**: `CreatePostRequest`
 -   **Response**: `201 Created` with `CreatePostResponse` body.
+-   **Errors**: 
+    -   `401 Unauthorized` for invalid/missing API token
+    -   `400 Bad Request` for validation errors
 
 #### `GET /posts/:id`
 
--   **Description**: Retrieves a published post.
+-   **Description**: Retrieves a published post (public endpoint).
+-   **Authentication**: **Not required** (public read access)
 -   **Request Headers**:
-    -   `Accept: application/json` (optional): Returns the raw `Post` object (excluding the secret).
+    -   `Accept: application/json` (optional): Returns the raw `Post` object (excluding secrets).
     -   `Accept: text/html` (default): Returns the content rendered as an HTML page.
 -   **Response**: `200 OK` with HTML or JSON. `404 Not Found` if the ID does not exist.
 
 #### `PUT /posts/:id`
 
 -   **Description**: Updates an existing post's title or content.
--   **Authentication**: **Required**. `Authorization: Bearer <secret>`
--   **Request Body**: `UpdatePostRequest`
--   **Response**: `200 OK`. `401 Unauthorized` for invalid secret. `404 Not Found` for invalid ID.
+-   **Authentication**: **Two-tier required**:
+    1. **API Token**: `Authorization: Bearer <API_TOKEN>` (server access)
+    2. **Post Secret**: Request body must include `secret: <post_secret>` (post ownership)
+-   **Request Body**: `UpdatePostRequest` (including `secret` field)
+-   **Response**: `200 OK`. 
+-   **Errors**:
+    -   `401 Unauthorized` for invalid/missing API token
+    -   `401 Unauthorized` for invalid post secret  
+    -   `404 Not Found` for invalid post ID
+    -   `400 Bad Request` for validation errors
 
 #### `DELETE /posts/:id`
 
 -   **Description**: Deletes a post.
--   **Authentication**: **Required**. `Authorization: Bearer <secret>`
--   **Response**: `204 No Content`. `401 Unauthorized` for invalid secret. `404 Not Found` for invalid ID.
+-   **Authentication**: **Two-tier required**:
+    1. **API Token**: `Authorization: Bearer <API_TOKEN>` (server access)
+    2. **Post Secret**: Request body must include `secret: <post_secret>` (post ownership)
+-   **Request Body**: `{ "secret": "<post_secret>" }`
+-   **Response**: `204 No Content`.
+-   **Errors**:
+    -   `401 Unauthorized` for invalid/missing API token
+    -   `401 Unauthorized` for invalid post secret
+    -   `404 Not Found` for invalid post ID
 
 #### `GET /health`
 
@@ -305,7 +397,71 @@ The REST API follows standard conventions. All responses are JSON unless a speci
 
 ## 6. Security Architecture
 
-### 6.1. Content Sanitization
+### 6.1. API Token Security
+
+#### 6.1.1. Token Generation Best Practices
+
+-   **Strength Requirements**: Minimum 32 characters, cryptographically secure
+-   **Generation Methods**:
+    ```bash
+    # Recommended: OpenSSL (base64 encoded)
+    openssl rand -base64 32
+    
+    # Alternative: Node.js crypto module
+    node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+    
+    # Alternative: Linux/Unix (hexadecimal)
+    openssl rand -hex 32
+    ```
+-   **Character Sets**: Use alphanumeric with special characters for maximum entropy
+-   **Uniqueness**: Generate unique tokens for each deployment environment
+
+#### 6.1.2. Token Storage and Distribution
+
+**Server-Side Storage**:
+-   Store in environment variables, never in code or configuration files
+-   Use container orchestration secrets (Docker Secrets, Kubernetes Secrets)
+-   Implement proper secret rotation procedures
+
+**Client-Side Configuration**:
+-   Users receive tokens through secure channels (encrypted email, password managers)
+-   Tokens stored in Obsidian plugin's private data.json (encrypted by Obsidian)
+-   Clear documentation on token security requirements
+
+#### 6.1.3. Token Lifecycle Management
+
+**Deployment Phases**:
+-   **Development**: Use separate tokens, can be less stringent
+-   **Staging**: Production-strength tokens, separate from production
+-   **Production**: Maximum security tokens, regularly rotated
+
+**Rotation Strategy**:
+-   Plan for token rotation without service interruption
+-   Maintain backward compatibility during transition periods
+-   Document rotation procedures for administrators
+
+#### 6.1.4. Security Monitoring
+
+**Token Usage Logging**:
+```typescript
+// Example logging structure
+logger.info('API access attempt', {
+  timestamp: new Date().toISOString(),
+  clientIP: req.ip,
+  userAgent: req.get('User-Agent'),
+  endpoint: req.path,
+  method: req.method,
+  tokenValid: true, // Never log actual token
+  authResult: 'success'
+});
+```
+
+**Anomaly Detection**:
+-   Monitor for unusual API usage patterns
+-   Rate limiting per token/IP combination
+-   Alert on repeated authentication failures
+
+### 6.2. Content Sanitization
 
 -   **Strategy**: Sanitize on render, not on ingress.
 -   **Tool**: `DOMPurify` on the server.
@@ -314,20 +470,41 @@ The REST API follows standard conventions. All responses are JSON unless a speci
 
 ### 6.2. Rate Limiting
 
--   **Tool**: `express-rate-limit` middleware.
--   **Configuration**: Apply rate limiting to all API endpoints, with stricter limits on creation (`POST`) and modification (`PUT`, `DELETE`) endpoints to prevent abuse.
+-   **Tool**: `express-rate-limit` middleware with token-aware configuration.
+-   **Strategy**: Multi-tier rate limiting based on authentication status and endpoint type
+-   **Configuration**: 
     ```typescript
     // Example configuration in server/src/app.ts
     import rateLimit from 'express-rate-limit';
 
-    const apiLimiter = rateLimit({
+    // Strict limits for unauthenticated requests
+    const publicLimiter = rateLimit({
         windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 100, // Limit each IP to 100 requests per window
+        max: 50, // Limit public requests
+        message: 'Too many requests from this IP',
         standardHeaders: true,
         legacyHeaders: false,
     });
 
-    app.use('/posts', apiLimiter);
+    // More generous limits for authenticated API requests
+    const apiLimiter = rateLimit({
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 200, // Higher limit for valid API tokens
+        skip: (req) => !req.headers.authorization, // Only apply to authenticated requests
+        keyGenerator: (req) => {
+            // Rate limit per token rather than just IP
+            const token = req.headers.authorization?.split(' ')[1];
+            return `api_${token ? crypto.createHash('sha256').update(token).digest('hex').substring(0, 8) : req.ip}`;
+        },
+        standardHeaders: true,
+        legacyHeaders: false,
+    });
+
+    // Apply public limits to read endpoints
+    app.use('/posts/:id', publicLimiter);
+    
+    // Apply API limits to write endpoints  
+    app.use(['/posts'], apiLimiter);
     ```
 
 ### 6.3. CORS (Cross-Origin Resource Sharing)
@@ -364,25 +541,64 @@ Since users can configure custom server URLs through the plugin settings, each s
 
 ## 7. Deployment Architecture
 
-The server is designed for containerized deployment using Docker and Docker Compose.
+The server is designed for containerized deployment using Docker and Docker Compose, with environment-based configuration for security and flexibility.
 
-### 7.1. Docker Compose Setup
+### 7.1. Environment Configuration
 
-A `docker-compose.yml` file orchestrates the services.
+The application uses environment variables for secure configuration management:
+
+#### 7.1.1. Required Environment Variables
+
+```bash
+# .env file example
+# API Authentication
+API_TOKEN=your-very-secure-api-token-here-minimum-32-characters
+
+# Application Configuration  
+NODE_ENV=production
+PORT=3000
+DB_PATH=/app/data/posts.db
+
+# CORS Configuration
+CORS_ORIGIN=https://your-domain.com
+
+# SSL Configuration (for deployment)
+DOMAIN=your-domain.com
+SSL_EMAIL=your-email@example.com
+
+# Optional: API Token Description
+API_TOKEN_DESCRIPTION="Production API access for Obsidian Publishing"
+```
+
+#### 7.1.2. Security Considerations
+
+-   **API_TOKEN**: Must be cryptographically strong (recommend 32+ characters)
+-   **Token Generation**: Use `openssl rand -base64 32` or similar secure methods
+-   **Environment Isolation**: Different tokens for development, staging, and production
+-   **Secret Management**: Never commit `.env` files to version control
+
+### 7.2. Docker Compose Setup
+
+A `docker-compose.yml` file orchestrates the services with environment variable support:
 
 ```yaml
-# deployment/docker-compose.yml
+# docker-compose.yml
 version: '3.8'
 
 services:
   app:
-    build: ../server
-    container_name: obsius-app
+    image: candy0327/obsidian-publisher-server:${VERSION:-latest}
+    container_name: obsidian-publisher-app
     restart: unless-stopped
     volumes:
       - ../server/database:/usr/src/app/database
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-3000}
+      - DB_PATH=${DB_PATH:-/app/data/posts.db}
+      - API_TOKEN=${API_TOKEN}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - API_TOKEN_DESCRIPTION=${API_TOKEN_DESCRIPTION}
     expose:
       - '3000'
 

@@ -5,6 +5,7 @@ import path from 'path';
 import { postsRouter } from './routes/posts';
 import { errorHandler } from './middleware/errorHandler';
 import { logger, loggerMiddleware } from './middleware/logger';
+import { publicRateLimiter, apiRateLimiter } from './middleware/rateLimiter';
 import { Database } from './models/database';
 
 const app = express();
@@ -50,6 +51,25 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     version: process.env.npm_package_version || '1.0.0'
   });
+});
+
+// Rate limiting middleware
+// Apply public rate limiting to all GET requests (reading posts)
+app.use('/:id', (req, res, next) => {
+  if (req.method === 'GET') {
+    publicRateLimiter(req, res, next);
+  } else {
+    next();
+  }
+});
+
+// Apply API rate limiting to authenticated routes
+app.use('/', (req, res, next) => {
+  if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+    apiRateLimiter(req, res, next);
+  } else {
+    next();
+  }
 });
 
 // API routes

@@ -8,17 +8,22 @@ jest.mock('../models/database');
 
 describe('API Endpoints', () => {
   let postModel: PostModel;
+  const testApiToken = 'test-api-token-for-integration-tests-12345678901234567890';
 
   beforeAll(() => {
     // Setup test environment
     process.env.NODE_ENV = 'test';
     process.env.DB_PATH = ':memory:';
+    process.env.API_TOKEN = testApiToken;
   });
 
   beforeEach(() => {
     postModel = new PostModel();
     jest.clearAllMocks();
   });
+
+  // Helper function to add auth header
+  const withAuth = (req: any) => req.set('Authorization', `Bearer ${testApiToken}`);
 
   describe('GET /health', () => {
     it('should return health status', async () => {
@@ -39,8 +44,8 @@ describe('API Endpoints', () => {
         content: '# Test Content\n\nThis is a test post.'
       };
 
-      const response = await request(app)
-        .post('/')
+      const response = await withAuth(request(app)
+        .post('/'))
         .send(postData)
         .expect(201);
 
@@ -51,8 +56,8 @@ describe('API Endpoints', () => {
     });
 
     it('should validate required fields', async () => {
-      const response = await request(app)
-        .post('/')
+      const response = await withAuth(request(app)
+        .post('/'))
         .send({})
         .expect(400);
 
@@ -63,8 +68,8 @@ describe('API Endpoints', () => {
     it('should validate title length', async () => {
       const longTitle = 'x'.repeat(201);
       
-      const response = await request(app)
-        .post('/')
+      const response = await withAuth(request(app)
+        .post('/'))
         .send({
           title: longTitle,
           content: 'Valid content'
@@ -77,8 +82,8 @@ describe('API Endpoints', () => {
     it('should validate content length', async () => {
       const longContent = 'x'.repeat(100001);
       
-      const response = await request(app)
-        .post('/')
+      const response = await withAuth(request(app)
+        .post('/'))
         .send({
           title: 'Valid title',
           content: longContent
@@ -155,8 +160,8 @@ describe('API Endpoints', () => {
     it('should update an existing post', async () => {
       jest.spyOn(postModel, 'update').mockResolvedValue(true);
 
-      const response = await request(app)
-        .put('/abc12345')
+      const response = await withAuth(request(app)
+        .put('/abc12345'))
         .send(updateData)
         .expect(204);
 
@@ -166,8 +171,8 @@ describe('API Endpoints', () => {
     it('should return 401 for invalid secret', async () => {
       jest.spyOn(postModel, 'update').mockResolvedValue(false);
 
-      const response = await request(app)
-        .put('/abc12345')
+      const response = await withAuth(request(app)
+        .put('/abc12345'))
         .send(updateData)
         .expect(401);
 
@@ -176,8 +181,8 @@ describe('API Endpoints', () => {
     });
 
     it('should validate secret format', async () => {
-      const response = await request(app)
-        .put('/abc12345')
+      const response = await withAuth(request(app)
+        .put('/abc12345'))
         .send({
           ...updateData,
           secret: 'invalid-secret'
@@ -196,8 +201,8 @@ describe('API Endpoints', () => {
     it('should delete an existing post', async () => {
       jest.spyOn(postModel, 'delete').mockResolvedValue(true);
 
-      const response = await request(app)
-        .delete('/abc12345')
+      const response = await withAuth(request(app)
+        .delete('/abc12345'))
         .send(deleteData)
         .expect(204);
 
@@ -207,8 +212,8 @@ describe('API Endpoints', () => {
     it('should return 401 for invalid secret', async () => {
       jest.spyOn(postModel, 'delete').mockResolvedValue(false);
 
-      const response = await request(app)
-        .delete('/abc12345')
+      const response = await withAuth(request(app)
+        .delete('/abc12345'))
         .send(deleteData)
         .expect(401);
 
@@ -217,8 +222,8 @@ describe('API Endpoints', () => {
     });
 
     it('should validate secret format', async () => {
-      const response = await request(app)
-        .delete('/abc12345')
+      const response = await withAuth(request(app)
+        .delete('/abc12345'))
         .send({
           secret: 'invalid-secret'
         })
