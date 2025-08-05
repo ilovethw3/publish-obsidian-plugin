@@ -81,9 +81,6 @@ jobs:
         # Create the client ZIP with plugin files
         zip -j "../dist/${{ steps.plugin-info.outputs.id }}.zip" main.js manifest.json styles.css
         
-        # Copy individual files for release
-        cp main.js manifest.json styles.css ../dist/
-        
     # ============================================================================
     # Build Server Package
     # ============================================================================
@@ -146,16 +143,16 @@ jobs:
         
         ## 📦 Client Plugin (Obsidian)
         
-        ### Quick Install
+        ### Installation
         1. Download \`${{ steps.plugin-info.outputs.id }}.zip\`
         2. Extract to: \`.obsidian/plugins/${{ steps.plugin-info.outputs.id }}/\`
         3. Restart Obsidian and enable the plugin
         
-        ### Manual Install  
-        Download individual files:
-        - \`main.js\` - Plugin code
-        - \`manifest.json\` - Plugin metadata
-        - \`styles.css\` - Plugin styles
+        ### Alternative: Automatic Installation
+        Use the provided installation script:
+        \`\`\`bash
+        curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/master/install-client.sh | bash
+        \`\`\`
         
         ## 🖥️ Server Deployment Package
         
@@ -219,9 +216,6 @@ jobs:
           dist/*.zip
           dist/*.sha256
           dist/*.md5
-          dist/*.js
-          dist/*.json
-          dist/*.css
           dist/RELEASE_NOTES.md
         retention-days: 90
         
@@ -236,9 +230,6 @@ jobs:
           dist/*.zip
           dist/*.sha256
           dist/*.md5
-          dist/main.js
-          dist/manifest.json
-          dist/styles.css
         draft: false
         prerelease: false
         make_latest: true
