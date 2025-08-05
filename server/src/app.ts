@@ -34,7 +34,20 @@ app.use(cors({
     /^obsidian:\/\//,
     /^app:\/\//
   ],
-  credentials: true
+  credentials: true,
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With', 
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Cache-Control',
+    'X-Real-IP',
+    'X-Forwarded-For',
+    'X-Forwarded-Proto'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  exposedHeaders: ['Content-Length', 'X-Kuma-Revision']
 }));
 
 // Body parsing middleware
