@@ -89,32 +89,6 @@ create_backup() {
     fi
 }
 
-# Function to setup SSL certificates
-setup_ssl() {
-    log_info "Setting up SSL certificates for $DOMAIN..."
-    
-    # Create certbot directories
-    mkdir -p ./ssl-data/certbot/conf ./ssl-data/certbot/www
-    
-    # Check if certificates already exist
-    if [ -d "./ssl-data/certbot/conf/live/$DOMAIN" ]; then
-        log_info "SSL certificates already exist for $DOMAIN"
-        return 0
-    fi
-    
-    # Request initial certificate
-    log_info "Requesting SSL certificate from Let's Encrypt..."
-    
-    export DOMAIN SSL_EMAIL
-    docker_compose --profile ssl-init up --abort-on-container-exit certbot
-    
-    if [ $? -eq 0 ]; then
-        log_success "SSL certificate obtained successfully"
-    else
-        log_error "Failed to obtain SSL certificate"
-        return 1
-    fi
-}
 
 # Function to pull Docker image
 pull_image() {
@@ -247,39 +221,8 @@ show_status() {
     echo "  • View logs: docker_compose logs -f"
     echo "  • Restart services: docker_compose restart"
     echo "  • Stop services: docker_compose down"
-    echo "  • Renew SSL: docker_compose --profile ssl-renew up certbot-renew"
 }
 
-# Function to setup SSL certificate renewal
-setup_ssl_renewal() {
-    log_info "Setting up SSL certificate auto-renewal..."
-    
-    # Create renewal script
-    cat > ./ssl-renew.sh << 'EOF'
-#!/bin/bash
-cd "$(dirname "$0")"
-export DOMAIN=${DOMAIN:-"share.141029.xyz"}
-export SSL_EMAIL=${SSL_EMAIL:-"admin@share.141029.xyz"}
-
-echo "[$(date)] Starting SSL renewal..."
-docker_compose --profile ssl-renew up certbot-renew
-
-if [ $? -eq 0 ]; then
-    echo "[$(date)] SSL renewal successful, reloading nginx..."
-    docker_compose exec nginx nginx -s reload
-    echo "[$(date)] SSL renewal completed"
-else
-    echo "[$(date)] SSL renewal failed"
-    exit 1
-fi
-EOF
-    
-    chmod +x ./ssl-renew.sh
-    
-    log_info "SSL renewal script created: ./ssl-renew.sh"
-    log_info "Consider adding this to your crontab for automatic renewal:"
-    echo "  0 2 * * 0 cd $(pwd) && ./ssl-renew.sh >> ./ssl-renewal.log 2>&1"
-}
 
 # Main deployment function
 main() {
@@ -303,8 +246,6 @@ main() {
         exit 1
     fi
     
-    # Setup SSL renewal
-    setup_ssl_renewal
     
     # Show final status
     show_status
@@ -377,14 +318,6 @@ case "${1:-deploy}" in
         tar -xzf "$BACKUP_FILE" -C ./
         docker_compose -f docker-compose.yml -f docker-compose.prod.yml up -d
         ;;
-    "ssl-setup")
-        check_dependencies
-        setup_ssl
-        ;;
-    "ssl-renew")
-        docker_compose --profile ssl-renew up certbot-renew
-        docker_compose exec nginx nginx -s reload
-        ;;
     "backup")
         create_backup
         ;;
@@ -400,26 +333,6 @@ case "${1:-deploy}" in
     "stop")
         docker_compose down
         ;;
-    "deploy-cloudflare")
-        check_dependencies
-        create_backup
-        log_info "Starting Cloudflare deployment (HTTP only, SSL handled by Cloudflare)..."
-        export VERSION DOMAIN SSL_EMAIL
-        
-        # Create necessary directories
-        mkdir -p ./server/database ./server/logs
-        
-        # Set correct permissions
-        chmod 755 ./server/database ./server/logs
-        
-        docker_compose down --remove-orphans || true
-        pull_image || {
-            log_warning "Pre-built image not available, building from source..."
-            docker_compose -f docker-compose.dev.yml build --no-cache app
-        }
-        docker_compose -f docker-compose.cloudflare.yml up -d
-        show_status
-        ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [command] [options]"
         echo ""
@@ -427,12 +340,9 @@ case "${1:-deploy}" in
         echo "  deploy         - Smart deployment (tries pre-built, falls back to source)"
         echo "  deploy-dev     - Development deployment (builds from source)"
         echo "  deploy-prod    - Production deployment (uses pre-built image)"
-        echo "  deploy-cloudflare - Cloudflare deployment (HTTP only, no SSL certificates)"
         echo "  pull           - Pull latest Docker image"
         echo "  upgrade [ver]  - Upgrade to specific version (default: latest)"
         echo "  rollback <file>- Rollback to a backup file"
-        echo "  ssl-setup      - Setup SSL certificates only"
-        echo "  ssl-renew      - Renew SSL certificates"
         echo "  backup         - Create backup only"
         echo "  status         - Show deployment status"
         echo "  logs [service] - Show application logs"

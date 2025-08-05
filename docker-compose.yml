@@ -29,8 +29,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./server/nginx/nginx-simple.conf:/etc/nginx/nginx.conf:ro
-      - ssl_www:/var/www/certbot:ro
+      - ./server/nginx/nginx-cloudflare.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - app
     networks:
@@ -41,29 +40,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-
-  certbot:
-    image: certbot/certbot
-    container_name: obsidian-publisher-certbot
-    volumes:
-      - ssl_certs:/etc/letsencrypt
-      - ssl_www:/var/www/certbot
-    command: certonly --webroot --webroot-path=/var/www/certbot --email ${SSL_EMAIL:-admin@share.141029.xyz} --agree-tos --no-eff-email --force-renewal -d ${DOMAIN:-share.141029.xyz}
-    depends_on:
-      - nginx
-    profiles:
-      - ssl-init
-
-  # SSL certificate renewal service
-  certbot-renew:
-    image: certbot/certbot
-    container_name: obsidian-publisher-certbot-renew
-    volumes:
-      - ssl_certs:/etc/letsencrypt
-      - ssl_www:/var/www/certbot
-    command: renew --webroot --webroot-path=/var/www/certbot
-    profiles:
-      - ssl-renew
 
 volumes:
   app_data:
@@ -78,10 +54,6 @@ volumes:
       type: none
       o: bind
       device: ./server/logs
-  ssl_certs:
-    driver: local
-  ssl_www:
-    driver: local
 
 networks:
   app_network:
