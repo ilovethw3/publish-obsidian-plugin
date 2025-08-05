@@ -400,6 +400,26 @@ case "${1:-deploy}" in
     "stop")
         docker_compose down
         ;;
+    "deploy-cloudflare")
+        check_dependencies
+        create_backup
+        log_info "Starting Cloudflare deployment (HTTP only, SSL handled by Cloudflare)..."
+        export VERSION DOMAIN SSL_EMAIL
+        
+        # Create necessary directories
+        mkdir -p ./server/database ./server/logs
+        
+        # Set correct permissions
+        chmod 755 ./server/database ./server/logs
+        
+        docker_compose down --remove-orphans || true
+        pull_image || {
+            log_warning "Pre-built image not available, building from source..."
+            docker_compose -f docker-compose.dev.yml build --no-cache app
+        }
+        docker_compose -f docker-compose.cloudflare.yml up -d
+        show_status
+        ;;
     "help"|"-h"|"--help")
         echo "Usage: $0 [command] [options]"
         echo ""
@@ -407,6 +427,7 @@ case "${1:-deploy}" in
         echo "  deploy         - Smart deployment (tries pre-built, falls back to source)"
         echo "  deploy-dev     - Development deployment (builds from source)"
         echo "  deploy-prod    - Production deployment (uses pre-built image)"
+        echo "  deploy-cloudflare - Cloudflare deployment (HTTP only, no SSL certificates)"
         echo "  pull           - Pull latest Docker image"
         echo "  upgrade [ver]  - Upgrade to specific version (default: latest)"
         echo "  rollback <file>- Rollback to a backup file"
