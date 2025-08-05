@@ -63,6 +63,10 @@ pid
 # Obsidian plugin data
 data.json
 
+# Build directories
+build/
+test-extract/
+
 # Temporary
 tmp/
 temp/

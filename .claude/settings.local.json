@@ -29,7 +29,10 @@
       "Bash(git rm:*)",
       "Bash(sudo docker ps:*)",
       "Bash(SUDO_ASKPASS=/bin/false ./deploy.sh deploy-prod)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(bash:*)",
+      "Bash(./build-server-package.sh:*)",
+      "Bash(unzip:*)"
     ],
     "deny": []
   }
