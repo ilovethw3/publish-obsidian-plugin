@@ -15,7 +15,21 @@
       "Bash(npm run build:*)",
       "Bash(docker-compose logs:*)",
       "mcp__zen__chat",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npm test:*)",
+      "Bash(./deploy.sh:*)",
+      "Bash(docker:*)",
+      "Bash(sudo usermod:*)",
+      "Bash(openssl rand:*)",
+      "Bash(newgrp:*)",
+      "Bash(curl:*)",
+      "Bash(Access-Control-Allow-Headers in preflight response\" error from Obsidian client.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git rm:*)",
+      "Bash(sudo docker ps:*)",
+      "Bash(SUDO_ASKPASS=/bin/false ./deploy.sh deploy-prod)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

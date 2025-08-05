@@ -59,10 +59,10 @@ check_dependencies() {
 
 # Function to run docker compose with fallback to docker-compose
 docker_compose() {
-    if docker compose version &> /dev/null; then
-        docker compose "$@"
+    if sudo docker compose version &> /dev/null; then
+        sudo docker compose "$@"
     else
-        docker-compose "$@"
+        sudo docker-compose "$@"
     fi
 }
 
@@ -94,7 +94,7 @@ create_backup() {
 pull_image() {
     log_info "Pulling Docker image: $DOCKER_IMAGE:$VERSION"
     
-    if docker pull "$DOCKER_IMAGE:$VERSION"; then
+    if sudo docker pull "$DOCKER_IMAGE:$VERSION"; then
         log_success "Successfully pulled image: $DOCKER_IMAGE:$VERSION"
         return 0
     else
