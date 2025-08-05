@@ -136,7 +136,7 @@ deploy_app() {
         docker_compose -f docker-compose.dev.yml up -d
     else
         log_info "Starting containers with pre-built image..."
-        docker_compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+        docker_compose up -d
     fi
     
     # Wait for services to be healthy
@@ -282,7 +282,7 @@ case "${1:-deploy}" in
         
         docker_compose down --remove-orphans || true
         pull_image || exit 1
-        docker_compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+        docker_compose up -d
         show_status
         ;;
     "pull")
@@ -302,7 +302,7 @@ case "${1:-deploy}" in
         
         docker_compose down
         pull_image || exit 1
-        docker_compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+        docker_compose up -d
         show_status
         ;;
     "rollback")
@@ -316,7 +316,7 @@ case "${1:-deploy}" in
         log_info "Rolling back to backup: $BACKUP_FILE"
         docker_compose down
         tar -xzf "$BACKUP_FILE" -C ./
-        docker_compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+        docker_compose up -d
         ;;
     "backup")
         create_backup
