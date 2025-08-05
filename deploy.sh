@@ -13,7 +13,7 @@ DOMAIN=${DOMAIN:-"share.141029.xyz"}
 SSL_EMAIL=${SSL_EMAIL:-"admin@share.141029.xyz"}
 BACKUP_DIR="./backups"
 VERSION=${VERSION:-"latest"}
-DOCKER_IMAGE="obsidian-publisher/server"
+DOCKER_IMAGE="candy0327/obsidian-publisher-server"
 
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"

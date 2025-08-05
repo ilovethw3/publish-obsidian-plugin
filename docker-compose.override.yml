@@ -10,7 +10,6 @@ services:
       dockerfile: ./server/Dockerfile
       target: production
     # Remove image directive to use build instead
-    image: null
     
     # Development environment variables
     environment:
