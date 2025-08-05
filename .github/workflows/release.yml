@@ -14,6 +14,13 @@ on:
 env:
   NODE_VERSION: '18'
 
+# Grant necessary permissions for GitHub Actions
+permissions:
+  contents: write
+  pull-requests: read
+  issues: read
+  packages: write
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
