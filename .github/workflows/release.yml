@@ -1,0 +1,276 @@
+name: Build and Release Packages
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (e.g., v1.0.0)
+  workflow_dispatch:  # Allow manual triggering
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: false
+        default: 'latest'
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # ============================================================================
+    # Environment Setup
+    # ============================================================================
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: 'client/package.json'
+        
+    - name: Set up environment variables
+      run: |
+        # Extract version from tag or use input
+        if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+        else
+          VERSION="${{ github.event.inputs.version || 'latest' }}"
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "Building version: $VERSION"
+        
+        # Set build timestamp
+        echo "BUILD_TIMESTAMP=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
+    
+    # ============================================================================
+    # Build Client (Obsidian Plugin)
+    # ============================================================================
+    - name: Install client dependencies
+      run: |
+        cd client
+        npm ci
+        
+    - name: Build client plugin
+      run: |
+        cd client
+        npm run build
+        
+    - name: Get plugin info
+      id: plugin-info
+      run: |
+        cd client
+        echo "version=$(node -p "require('./manifest.json').version")" >> $GITHUB_OUTPUT
+        echo "id=$(node -p "require('./manifest.json').id")" >> $GITHUB_OUTPUT
+        echo "name=$(node -p "require('./manifest.json').name")" >> $GITHUB_OUTPUT
+        
+    - name: Create client ZIP package
+      run: |
+        cd client
+        mkdir -p ../dist
+        # Create the client ZIP with plugin files
+        zip -j "../dist/${{ steps.plugin-info.outputs.id }}.zip" main.js manifest.json styles.css
+        
+        # Copy individual files for release
+        cp main.js manifest.json styles.css ../dist/
+        
+    # ============================================================================
+    # Build Server Package
+    # ============================================================================
+    - name: Build server package
+      run: |
+        chmod +x build-server-package.sh
+        ./build-server-package.sh
+        
+    - name: Process server package with version
+      run: |
+        cd build/
+        if [[ "$VERSION" != "latest" ]]; then
+          # Create versioned filename
+          VERSIONED_NAME="obsidian-publisher-server-$VERSION.zip"
+          # Find the timestamped zip file and rename it
+          ORIGINAL_ZIP=$(ls obsidian-publisher-server-*.zip | grep -v latest | head -1)
+          if [ -n "$ORIGINAL_ZIP" ]; then
+            cp "$ORIGINAL_ZIP" "$VERSIONED_NAME"
+            # Update latest symlink
+            rm -f obsidian-publisher-server-latest.zip
+            ln -s "$VERSIONED_NAME" obsidian-publisher-server-latest.zip
+          fi
+        fi
+        ls -la
+        
+    - name: Move server packages to dist directory
+      run: |
+        mkdir -p dist
+        if [[ "$VERSION" != "latest" ]]; then
+          cp build/obsidian-publisher-server-$VERSION.zip dist/
+        else
+          cp build/obsidian-publisher-server-*.zip dist/ || true
+        fi
+        
+    # ============================================================================
+    # Generate Checksums
+    # ============================================================================
+    - name: Generate checksums for all packages
+      run: |
+        cd dist/
+        for file in *.zip; do
+          if [[ -f "$file" && ! -L "$file" ]]; then
+            sha256sum "$file" > "$file.sha256"
+            md5sum "$file" > "$file.md5"
+            echo "Generated checksums for $file"
+          fi
+        done
+        ls -la
+        
+    # ============================================================================
+    # Create Unified Release
+    # ============================================================================
+    - name: Create release notes
+      run: |
+        mkdir -p dist/
+        cat > dist/RELEASE_NOTES.md << EOF
+        # 🚀 Obsidian Publishing System $VERSION
+        
+        Complete release containing both client plugin and server deployment package.
+        
+        ## 📦 Client Plugin (Obsidian)
+        
+        ### Quick Install
+        1. Download \`${{ steps.plugin-info.outputs.id }}.zip\`
+        2. Extract to: \`.obsidian/plugins/${{ steps.plugin-info.outputs.id }}/\`
+        3. Restart Obsidian and enable the plugin
+        
+        ### Manual Install  
+        Download individual files:
+        - \`main.js\` - Plugin code
+        - \`manifest.json\` - Plugin metadata
+        - \`styles.css\` - Plugin styles
+        
+        ## 🖥️ Server Deployment Package
+        
+        ### Quick Deploy
+        1. Download \`obsidian-publisher-server-$VERSION.zip\`
+        2. Extract: \`unzip obsidian-publisher-server-$VERSION.zip\`
+        3. Configure: \`cd obsidian-publisher-server && cp .env.example .env\`
+        4. Edit \`.env\` with your domain and API token
+        5. Deploy: \`./deploy.sh deploy-prod\`
+        
+        ### System Requirements
+        - Docker 20.10+ and Docker Compose 2.0+
+        - Linux server with 1GB RAM
+        - Port 80 available (HTTPS handled by Cloudflare)
+        
+        ## 🔐 Package Verification
+        
+        All packages include SHA256 and MD5 checksums for verification:
+        EOF
+        
+        # Add checksums to release notes
+        cd dist/
+        for file in *.zip; do
+          if [[ -f "$file" && ! -L "$file" ]]; then
+            echo "" >> RELEASE_NOTES.md
+            echo "### $file" >> RELEASE_NOTES.md
+            echo '```' >> RELEASE_NOTES.md
+            echo "SHA256: $(cat $file.sha256 | cut -d' ' -f1)" >> RELEASE_NOTES.md
+            echo "MD5: $(cat $file.md5 | cut -d' ' -f1)" >> RELEASE_NOTES.md
+            echo '```' >> RELEASE_NOTES.md
+          fi
+        done
+        
+        # Add footer
+        cat >> RELEASE_NOTES.md << EOF
+        
+        ## 📚 Documentation
+        
+        - [Server Installation Guide](https://github.com/${{ github.repository }}/blob/master/SERVER_PACKAGING.md)
+        - [Client Installation Guide](https://github.com/${{ github.repository }}/blob/master/CLIENT_DEPLOYMENT.md)
+        - [Complete Documentation](https://github.com/${{ github.repository }}/tree/master/docs)
+        
+        ## 🐛 Support
+        
+        - [Report Issues](https://github.com/${{ github.repository }}/issues)
+        - [View Source](https://github.com/${{ github.repository }})
+        
+        ---
+        
+        **Plugin Version:** ${{ steps.plugin-info.outputs.version }}  
+        **Release Version:** $VERSION  
+        **Build:** ${{ github.sha }}  
+        **Build Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+        EOF
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-packages-${{ env.VERSION }}
+        path: |
+          dist/*.zip
+          dist/*.sha256
+          dist/*.md5
+          dist/*.js
+          dist/*.json
+          dist/*.css
+          dist/RELEASE_NOTES.md
+        retention-days: 90
+        
+    - name: Create GitHub Release
+      if: github.ref_type == 'tag'
+      id: create_release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: "Obsidian Publishing System ${{ env.VERSION }}"
+        body_path: dist/RELEASE_NOTES.md
+        files: |
+          dist/*.zip
+          dist/*.sha256
+          dist/*.md5
+          dist/main.js
+          dist/manifest.json
+          dist/styles.css
+        draft: false
+        prerelease: false
+        make_latest: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    # ============================================================================
+    # Build Summary
+    # ============================================================================
+    - name: Build summary
+      run: |
+        echo "## 🎉 Build Completed Successfully" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Build Information" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version**: $VERSION" >> $GITHUB_STEP_SUMMARY
+        echo "- **Plugin Version**: ${{ steps.plugin-info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Time**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### 📦 Generated Packages" >> $GITHUB_STEP_SUMMARY
+        cd dist/
+        for file in *.zip; do
+          if [[ -f "$file" && ! -L "$file" ]]; then
+            size=$(ls -lh "$file" | awk '{print $5}')
+            echo "- **$file** ($size)" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### 🔗 Downloads" >> $GITHUB_STEP_SUMMARY
+        if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          echo "- [Release Page](https://github.com/${{ github.repository }}/releases/tag/$VERSION)" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Build artifacts available in workflow artifacts" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### ✅ Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "1. **Client Plugin**: Download \`${{ steps.plugin-info.outputs.id }}.zip\` and install in Obsidian" >> $GITHUB_STEP_SUMMARY
+        echo "2. **Server Deployment**: Download \`obsidian-publisher-server-$VERSION.zip\` and deploy" >> $GITHUB_STEP_SUMMARY
+        echo "3. **Verification**: Check package checksums before installation" >> $GITHUB_STEP_SUMMARY

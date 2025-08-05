@@ -32,7 +32,8 @@
       "Bash(grep:*)",
       "Bash(bash:*)",
       "Bash(./build-server-package.sh:*)",
-      "Bash(unzip:*)"
+      "Bash(unzip:*)",
+      "Bash(git restore:*)"
     ],
     "deny": []
   }
