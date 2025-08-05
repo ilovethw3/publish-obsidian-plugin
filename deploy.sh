@@ -332,6 +332,13 @@ case "${1:-deploy}" in
         create_backup
         log_info "Starting production deployment (using pre-built image)..."
         export VERSION DOMAIN SSL_EMAIL
+        
+        # Create necessary directories
+        mkdir -p ./server/database ./server/logs
+        
+        # Set correct permissions
+        chmod 755 ./server/database ./server/logs
+        
         docker_compose down --remove-orphans || true
         pull_image || exit 1
         docker_compose -f docker-compose.yml -f docker-compose.prod.yml up -d
@@ -345,6 +352,13 @@ case "${1:-deploy}" in
         log_info "Upgrading to version: $VERSION"
         create_backup
         export VERSION DOMAIN SSL_EMAIL
+        
+        # Create necessary directories
+        mkdir -p ./server/database ./server/logs
+        
+        # Set correct permissions
+        chmod 755 ./server/database ./server/logs
+        
         docker_compose down
         pull_image || exit 1
         docker_compose -f docker-compose.yml -f docker-compose.prod.yml up -d
