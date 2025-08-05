@@ -7,7 +7,7 @@ interface CreateResponse {
 	secret: string;
 }
 
-const obsiusWrapper = {
+const obsidianWrapper = {
 	async createPost(baseUrl: string, authToken: string | undefined, title: string, content: string): Promise<CreateResponse> {
 		return http("POST", `${baseUrl}/`, { title, content }, authToken);
 	},
@@ -35,7 +35,7 @@ export interface Post {
 	secret: string;
 }
 
-export interface ObsiusClient {
+export interface ObsidianClient {
 	data(): PluginData;
 
 	getServerUrl(): string;
@@ -60,7 +60,7 @@ export interface ObsiusClient {
 export async function createClient(
 	loadData: () => Promise<PluginData>,
 	saveData: (data: PluginData) => Promise<void>
-): Promise<ObsiusClient> {
+): Promise<ObsidianClient> {
 	const data = await loadData();
 
 	// Ensure settings exist with defaults
@@ -94,7 +94,7 @@ export async function createClient(
 			const authToken = this.getAuthToken();
 
 			try {
-				const resp = await obsiusWrapper.createPost(serverUrl, authToken, title, content);
+				const resp = await obsidianWrapper.createPost(serverUrl, authToken, title, content);
 				data.posts[file.path] = {
 					id: resp.id,
 					secret: resp.secret,
@@ -124,7 +124,7 @@ export async function createClient(
 			const authToken = this.getAuthToken();
 
 			try {
-				await obsiusWrapper.updatePost(
+				await obsidianWrapper.updatePost(
 					serverUrl,
 					authToken,
 					post.id,
@@ -143,7 +143,7 @@ export async function createClient(
 			const authToken = this.getAuthToken();
 
 			try {
-				await obsiusWrapper.deletePost(serverUrl, authToken, post.id, post.secret);
+				await obsidianWrapper.deletePost(serverUrl, authToken, post.id, post.secret);
 				delete data.posts[file.path];
 				await saveData(data);
 			} catch (e) {

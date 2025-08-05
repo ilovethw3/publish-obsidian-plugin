@@ -1,6 +1,6 @@
 {
-	"id": "obsius-publish",
-	"name": "Obsius Publish",
+	"id": "obsidian-publish",
+	"name": "Obsidian Publish",
 	"version": "1.4.0",
 	"minAppVersion": "0.12.0",
 	"description": "Make single notes instantly available on the web.",

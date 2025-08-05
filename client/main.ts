@@ -1,17 +1,17 @@
 import { Notice, Plugin, TFile } from "obsidian";
-import type { ObsiusClient } from "./src/obsius";
-import { createClient } from "./src/obsius";
+import type { ObsidianClient } from "./src/obsidian";
+import { createClient } from "./src/obsidian";
 import { getText } from "./src/text";
 import { PublishedPostsModal } from "./src/modals";
-import { ObsiusSettingTab } from "./src/settings";
+import { ObsidianSettingTab } from "./src/settings";
 import { PluginData, DEFAULT_SETTINGS, isValidUrl } from "./src/types";
 import { migratePluginData, validatePluginData } from "./src/migration";
 
-export default class ObsiusPlugin extends Plugin {
-	obsiusClient: ObsiusClient;
+export default class ObsidianPlugin extends Plugin {
+	obsidianClient: ObsidianClient;
 
 	async onload() {
-		this.obsiusClient = await createClient(
+		this.obsidianClient = await createClient(
 			async () => {
 				const loadedData = await this.loadData();
 				const migratedData = migratePluginData(loadedData);
@@ -42,18 +42,18 @@ export default class ObsiusPlugin extends Plugin {
 		this.registerVaultEvents();
 		
 		// Add settings tab
-		this.addSettingTab(new ObsiusSettingTab(this.app, this));
+		this.addSettingTab(new ObsidianSettingTab(this.app, this));
 	}
 
 	onunload() {}
 
 	// Settings management methods
 	getServerUrl(): string {
-		return this.obsiusClient.getServerUrl();
+		return this.obsidianClient.getServerUrl();
 	}
 
 	getAuthToken(): string | undefined {
-		return this.obsiusClient.getAuthToken();
+		return this.obsidianClient.getAuthToken();
 	}
 
 	async updateServerUrl(newUrl: string): Promise<void> {
@@ -61,7 +61,7 @@ export default class ObsiusPlugin extends Plugin {
 			throw new Error("Invalid URL format");
 		}
 
-		const data = this.obsiusClient.data();
+		const data = this.obsidianClient.data();
 		if (!data.settings) {
 			data.settings = { ...DEFAULT_SETTINGS };
 		}
@@ -70,7 +70,7 @@ export default class ObsiusPlugin extends Plugin {
 	}
 
 	async updateAuthToken(newToken: string | undefined): Promise<void> {
-		const data = this.obsiusClient.data();
+		const data = this.obsidianClient.data();
 		if (!data.settings) {
 			data.settings = { ...DEFAULT_SETTINGS };
 		}
@@ -79,65 +79,65 @@ export default class ObsiusPlugin extends Plugin {
 	}
 
 	async resetToDefaultSettings(): Promise<void> {
-		const data = this.obsiusClient.data();
+		const data = this.obsidianClient.data();
 		data.settings = { ...DEFAULT_SETTINGS };
 		await this.saveData(data);
 	}
 
 	addObsiusCommands() {
 		this.addCommand({
-			id: "obsius.action.listPosts",
+			id: "obsidian.action.listPosts",
 			name: getText("actions.listPosts.name"),
 			callback: () => this.showPublishedPosts(),
 		});
 		this.addCommand({
-			id: "obsius.action.create",
+			id: "obsidian.action.create",
 			name: getText("actions.create.name"),
 			editorCheckCallback: (checking, _, view) => {
 				if (!(view.file instanceof TFile)) {
 					return false;
 				}
 				if (checking) {
-					return !this.obsiusClient.getUrl(view.file);
+					return !this.obsidianClient.getUrl(view.file);
 				}
 				this.publishFile(view.file);
 			},
 		});
 		this.addCommand({
-			id: "obsius.action.update",
+			id: "obsidian.action.update",
 			name: getText("actions.update.name"),
 			editorCheckCallback: (checking, _, view) => {
 				if (!(view.file instanceof TFile)) {
 					return false;
 				}
 				if (checking) {
-					return !!this.obsiusClient.getUrl(view.file);
+					return !!this.obsidianClient.getUrl(view.file);
 				}
 				this.updateFile(view.file);
 			},
 		});
 		this.addCommand({
-			id: "obsius.action.copyUrl",
+			id: "obsidian.action.copyUrl",
 			name: getText("actions.copyUrl.name"),
 			editorCheckCallback: (checking, _, view) => {
 				if (!(view.file instanceof TFile)) {
 					return false;
 				}
 				if (checking) {
-					return !!this.obsiusClient.getUrl(view.file);
+					return !!this.obsidianClient.getUrl(view.file);
 				}
 				this.copyUrl(view.file);
 			},
 		});
 		this.addCommand({
-			id: "obsius.action.remove",
+			id: "obsidian.action.remove",
 			name: getText("actions.remove.name"),
 			editorCheckCallback: (checking, _, view) => {
 				if (!(view.file instanceof TFile)) {
 					return false;
 				}
 				if (checking) {
-					return !!this.obsiusClient.getUrl(view.file);
+					return !!this.obsidianClient.getUrl(view.file);
 				}
 				this.deleteFile(view.file);
 			},
@@ -149,7 +149,7 @@ export default class ObsiusPlugin extends Plugin {
 			this.app.workspace.on("file-menu", (menu, file) => {
 				if (file instanceof TFile) {
 					menu.addSeparator();
-					if (!this.obsiusClient.getUrl(file)) {
+					if (!this.obsidianClient.getUrl(file)) {
 						menu.addItem((item) =>
 							item
 								.setTitle(getText("actions.create.name"))
@@ -186,26 +186,26 @@ export default class ObsiusPlugin extends Plugin {
 		this.registerEvent(
 			this.app.vault.on("rename", (file, oldPath) => {
 				if (file instanceof TFile) {
-					this.obsiusClient.handleNoteRename(file, oldPath);
+					this.obsidianClient.handleNoteRename(file, oldPath);
 				}
 			})
 		);
 		this.registerEvent(
 			this.app.vault.on("delete", (file) => {
 				if (file instanceof TFile) {
-					this.obsiusClient.handleNoteDelete(file);
+					this.obsidianClient.handleNoteDelete(file);
 				}
 			})
 		);
 	}
 
 	showPublishedPosts() {
-		new PublishedPostsModal(this.app, this.obsiusClient).open();
+		new PublishedPostsModal(this.app, this.obsidianClient).open();
 	}
 
 	async publishFile(file: TFile) {
 		try {
-			const url = await this.obsiusClient.createPost(file);
+			const url = await this.obsidianClient.createPost(file);
 			await navigator.clipboard.writeText(url);
 			new Notice(getText("actions.create.success"));
 		} catch (e) {
@@ -216,7 +216,7 @@ export default class ObsiusPlugin extends Plugin {
 
 	async updateFile(file: TFile) {
 		try {
-			await this.obsiusClient.updatePost(file);
+			await this.obsidianClient.updatePost(file);
 			new Notice(getText("actions.update.success"));
 		} catch (e) {
 			console.error(e);
@@ -225,7 +225,7 @@ export default class ObsiusPlugin extends Plugin {
 	}
 
 	async copyUrl(file: TFile) {
-		const url = this.obsiusClient.getUrl(file);
+		const url = this.obsidianClient.getUrl(file);
 		if (url) {
 			await navigator.clipboard.writeText(url);
 			new Notice(getText("actions.copyUrl.success"));
@@ -236,7 +236,7 @@ export default class ObsiusPlugin extends Plugin {
 
 	async deleteFile(file: TFile) {
 		try {
-			await this.obsiusClient.deletePost(file);
+			await this.obsidianClient.deletePost(file);
 			new Notice(getText("actions.remove.success"));
 		} catch (e) {
 			console.error(e);

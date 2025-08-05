@@ -1,9 +1,9 @@
 import { App, Modal, setIcon, TFile } from "obsidian";
 import { getText } from "./text";
-import { ObsiusClient } from "./obsius";
+import { ObsidianClient } from "./obsidian";
 
 export class PublishedPostsModal extends Modal {
-	constructor(app: App, private obsiusClient: ObsiusClient) {
+	constructor(app: App, private obsidianClient: ObsidianClient) {
 		super(app);
 	}
 
@@ -12,7 +12,7 @@ export class PublishedPostsModal extends Modal {
 			text: getText("actions.listPosts.title"),
 		});
 
-		for (const [path] of Object.entries(this.obsiusClient.data().posts)) {
+		for (const [path] of Object.entries(this.obsidianClient.data().posts)) {
 			const file = this.app.vault.getAbstractFileByPath(path);
 			if (!(file instanceof TFile)) {
 				continue;
@@ -35,7 +35,7 @@ export class PublishedPostsModal extends Modal {
 			);
 			setIcon(showFile, "file-text");
 
-			const fileUrl = this.obsiusClient.getUrl(file);
+			const fileUrl = this.obsidianClient.getUrl(file);
 			if (fileUrl) {
 				const webLink = buttonContainer.createEl("a", {
 					cls: "hidden",

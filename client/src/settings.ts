@@ -1,12 +1,12 @@
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
-import ObsiusPlugin from "../main";
+import ObsidianPlugin from "../main";
 import { isValidUrl, DEFAULT_SETTINGS, ServerHealthResponse } from "./types";
 import http from "./http";
 
-export class ObsiusSettingTab extends PluginSettingTab {
-  plugin: ObsiusPlugin;
+export class ObsidianSettingTab extends PluginSettingTab {
+  plugin: ObsidianPlugin;
 
-  constructor(app: App, plugin: ObsiusPlugin) {
+  constructor(app: App, plugin: ObsidianPlugin) {
     super(app, plugin);
     this.plugin = plugin;
   }
@@ -61,12 +61,12 @@ export class ObsiusSettingTab extends PluginSettingTab {
         }));
 
     // Connection Test Section
-    const connectionDiv = containerEl.createEl("div", { cls: "obsius-connection-test" });
+    const connectionDiv = containerEl.createEl("div", { cls: "obsidian-connection-test" });
     connectionDiv.createEl("h3", { text: "Connection Test" });
 
     const statusEl = connectionDiv.createEl("p", { 
       text: "Click test to verify server connection",
-      cls: "obsius-connection-status"
+      cls: "obsidian-connection-status"
     });
 
     new Setting(connectionDiv)
@@ -78,17 +78,17 @@ export class ObsiusSettingTab extends PluginSettingTab {
           button.setDisabled(true);
           button.setButtonText("Testing...");
           statusEl.setText("Testing connection...");
-          statusEl.removeClass("obsius-status-success", "obsius-status-error");
+          statusEl.removeClass("obsidian-status-success", "obsidian-status-error");
 
           try {
             await this.testConnection();
             statusEl.setText("✓ Connection successful");
-            statusEl.addClass("obsius-status-success");
+            statusEl.addClass("obsidian-status-success");
             new Notice("Connection test passed");
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : "Connection failed";
             statusEl.setText(`✗ ${errorMsg}`);
-            statusEl.addClass("obsius-status-error");
+            statusEl.addClass("obsidian-status-error");
             new Notice(`Connection test failed: ${errorMsg}`);
           } finally {
             button.setDisabled(false);
