@@ -18,7 +18,7 @@ export interface Post {
 
 // Default settings
 export const DEFAULT_SETTINGS: PluginSettings = {
-  serverUrl: "https://share.141029.xyz"
+  serverUrl: ""
 };
 
 // URL validation helper
