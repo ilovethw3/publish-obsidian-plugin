@@ -1,6 +1,8 @@
+version: '3.8'
+
 services:
   app:
-    image: candy0327/obsidian-publisher-server:${VERSION:-latest}
+    image: candy0327/obsidian-publisher-server:latest
     container_name: obsidian-publisher-app
     pull_policy: always
     environment:

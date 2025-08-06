@@ -4,7 +4,7 @@
 services:
   app:
     # Ensure we're using the production image
-    image: candy0327/obsidian-publisher-server:${VERSION:-latest}
+    image: candy0327/obsidian-publisher-server:latest
     pull_policy: always
     
     # Production environment overrides
