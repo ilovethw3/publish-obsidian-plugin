@@ -153,6 +153,12 @@ VERSION=v1.2.3 ./deploy.sh upgrade
 ./release-server.sh
 ```
 
+**Package Structure**: The build script creates a self-contained ZIP with:
+- Optimized `deploy.sh` (with backup as `deploy.sh.original`)
+- Docker configuration and nginx config
+- Installation documentation and environment templates
+- Server deployment scripts
+
 ### Client Deployment
 #### Manual Installation
 Plugin files must be copied to Obsidian's plugin directory:
@@ -166,6 +172,20 @@ cp client/main.js client/manifest.json client/styles.css ~/.config/obsidian/plug
 # Use installation script
 curl -fsSL https://raw.githubusercontent.com/your-org/obsidian-publishing-system/master/install-client.sh | bash
 ```
+
+### Release Automation
+The project uses GitHub Actions for automated releases:
+
+```bash
+# Create new release (triggers GitHub Actions)
+git tag -a v1.0.x -m "Release description" && git push origin v1.0.x
+```
+
+**Release Process**: Pushing version tags automatically:
+- Builds both client and server packages
+- Creates GitHub Release with ZIP files
+- Client package: `obsidian-sample-plugin.zip` (for Obsidian plugin installation)
+- Server package: `obsidian-publisher-server-*.zip` (for server deployment)
 
 ## Key Technical Details
 
@@ -279,9 +299,11 @@ The server runs in a multi-container setup:
 5. **TypeScript Paths**: Server needs both `../shared/*` and `./shared/*` paths for local and Docker environments
 6. **Database Permissions**: SQLite file needs proper ownership for Docker containers (1001:1001)
 7. **Rate Limiting**: Different limits for public endpoints vs API endpoints
-8. **Environment Variables**: Docker Compose requires `version: '3.8'` for proper variable interpolation
+8. **Configuration Simplified**: Uses single `docker-compose.yml` and `nginx-cloudflare.conf` - no multiple environment files
 9. **Plugin Directory**: Client installs to `~/.config/obsidian/plugins/obsidian-publish/` (not obsius-publish)
 10. **Test Timeouts**: Jest configured with 10-second timeout and force exit
+11. **Server Packaging**: `build-server-package.sh` creates optimized deploy script and backup as `.original`
+12. **Variable Interpolation**: Avoid `${VAR:-default}` syntax - use fixed values in docker-compose.yml
 
 ## Monitoring & Troubleshooting
 
