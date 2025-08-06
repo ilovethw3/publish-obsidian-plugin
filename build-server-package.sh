@@ -716,9 +716,6 @@ case "${1:-deploy}" in
         docker_compose down --remove-orphans || true
         # Using unified docker-compose.yml configuration
         docker_compose up -d --build
-        else
-            docker_compose up -d
-        fi
         show_status
         ;;
     "deploy-prod"|"production")
