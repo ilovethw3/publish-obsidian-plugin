@@ -221,7 +221,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx-simple.conf:/etc/nginx/conf.d/default.conf
+      - ./server/nginx/nginx-cloudflare.conf:/etc/nginx/nginx.conf
       - ssl_certs:/etc/letsencrypt
     depends_on:
       - app

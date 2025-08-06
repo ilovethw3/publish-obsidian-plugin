@@ -132,8 +132,8 @@ deploy_app() {
     # Try to pull pre-built image, fallback to building from source
     if ! pull_image; then
         log_info "Building from source..."
-        docker_compose -f docker-compose.dev.yml build --no-cache app
-        docker_compose -f docker-compose.dev.yml up -d
+        docker_compose build --no-cache app
+        docker_compose up -d
     else
         log_info "Starting containers with pre-built image..."
         docker_compose up -d
@@ -265,7 +265,7 @@ case "${1:-deploy}" in
         log_info "Starting development deployment (building from source)..."
         export VERSION DOMAIN SSL_EMAIL
         docker_compose down --remove-orphans || true
-        docker_compose -f docker-compose.dev.yml up -d --build
+        docker_compose up -d --build
         show_status
         ;;
     "deploy-prod")

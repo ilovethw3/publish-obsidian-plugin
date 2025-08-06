@@ -65,12 +65,10 @@ copy_core_files() {
     
     # Copy Docker configuration files
     cp docker-compose.yml "$PACKAGE_DIR/"
-    cp docker-compose.prod.yml "$PACKAGE_DIR/"
+    # docker-compose.prod.yml no longer needed - using unified config
     
     # Copy nginx configurations
     cp server/nginx/nginx-cloudflare.conf "$PACKAGE_DIR/server/nginx/"
-    cp server/nginx/nginx-dev.conf "$PACKAGE_DIR/server/nginx/"
-    cp server/nginx/nginx-simple.conf "$PACKAGE_DIR/server/nginx/"
     
     # Copy shared types
     cp shared/types.ts "$PACKAGE_DIR/shared/"
@@ -235,9 +233,7 @@ If you're not using a proxy service, you'll need to modify the nginx configurati
 
 The package includes several nginx configurations:
 
-- `nginx-cloudflare.conf`: For use with Cloudflare (default for production)
-- `nginx-dev.conf`: For development environments
-- `nginx-simple.conf`: Basic configuration without advanced features
+- `nginx-cloudflare.conf`: Unified nginx configuration optimized for Cloudflare
 
 ## Deployment Commands
 
@@ -570,11 +566,11 @@ deploy_app() {
     if ! pull_image; then
         if [ -f "server/Dockerfile" ]; then
             log_info "Building from source..."
-            docker_compose -f docker-compose.dev.yml build --no-cache app || {
+            docker_compose build --no-cache app || {
                 log_error "Failed to build from source"
                 exit 1
             }
-            docker_compose -f docker-compose.dev.yml up -d
+            docker_compose up -d
         else
             log_error "Cannot pull image and no Dockerfile found for building"
             exit 1
@@ -718,8 +714,8 @@ case "${1:-deploy}" in
         setup_directories
         export VERSION DOMAIN SSL_EMAIL NODE_ENV API_TOKEN CORS_ORIGIN
         docker_compose down --remove-orphans || true
-        if [ -f "docker-compose.dev.yml" ]; then
-            docker_compose -f docker-compose.dev.yml up -d --build
+        # Using unified docker-compose.yml configuration
+        docker_compose up -d --build
         else
             docker_compose up -d
         fi

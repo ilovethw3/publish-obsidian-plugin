@@ -47,12 +47,9 @@ obsidian-publisher-server/
 ├── README.md                    # 项目说明
 ├── DEPLOYMENT.md                # 部署文档
 ├── docker-compose.yml           # Docker配置
-├── docker-compose.prod.yml      # 生产环境配置
 ├── server/
 │   ├── nginx/                   # Nginx配置文件
-│   │   ├── nginx-cloudflare.conf
-│   │   ├── nginx-dev.conf
-│   │   └── nginx-simple.conf
+│   │   └── nginx-cloudflare.conf
 │   ├── database/               # 数据库目录(空)
 │   └── logs/                   # 日志目录(空)
 └── shared/

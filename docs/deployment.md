@@ -137,7 +137,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx-simple.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./server/nginx/nginx-cloudflare.conf:/etc/nginx/nginx.conf:ro
       - ssl_certs:/etc/letsencrypt:ro
       - ssl_www:/var/www/certbot:ro
     networks:
@@ -185,7 +185,7 @@ networks:
 ### Nginx 配置
 
 ```nginx
-# nginx-simple.conf
+# nginx-cloudflare.conf
 server {
     listen 80;
     server_name ${DOMAIN};
@@ -351,8 +351,7 @@ deploy_prod() {
 deploy_dev() {
     log_info "开发部署：从源码构建..."
     
-    # 使用开发配置文件
-    export COMPOSE_FILE=docker-compose.dev.yml
+    # 使用统一配置文件
     docker-compose build app
     docker-compose up -d
 }
